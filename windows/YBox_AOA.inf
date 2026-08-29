@@ -1,0 +1,39 @@
+[Version]
+Signature = "$Windows NT$"
+Class = USBDevice
+ClassGUID = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}
+Provider = %ManufacturerName%
+CatalogFile = YBox_AOA.cat
+DriverVer = 01/01/2026,1.0.0.0
+
+; ========== Manufacturer/Models sections ===========
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64
+
+[Standard.NTamd64]
+%DeviceName1% = USB_Install, USB\VID_18D1&PID_2D00
+%DeviceName2% = USB_Install, USB\VID_18D1&PID_2D01
+
+; =================== Installation ===================
+
+[USB_Install]
+Include = winusb.inf
+Needs = WINUSB.NT
+
+[USB_Install.Services]
+Include = winusb.inf
+Needs = WINUSB.NT.Services
+
+[USB_Install.HW]
+AddReg = Dev_AddReg
+
+[Dev_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{A5DCBF10-6530-11D2-901F-00C04FB951ED}"
+
+; =================== Strings ===================
+
+[Strings]
+ManufacturerName = "Yeval"
+DeviceName1 = "YBox Mobile Controller (AOA Mode)"
+DeviceName2 = "YBox Mobile Controller (AOA Mode with ADB)"

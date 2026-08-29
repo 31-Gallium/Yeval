@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Controller Profile",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["standard", "compact", "custom"]
+    },
+    "sticks": {
+      "type": "object",
+      "properties": {
+        "left": { "$ref": "#/definitions/stick" },
+        "right": { "$ref": "#/definitions/stick" }
+      },
+      "required": ["left", "right"]
+    },
+    "buttons": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/button" }
+    },
+    "dpad": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "description": "Normalized X position (0-1)" },
+        "y": { "type": "number", "description": "Normalized Y position (0-1)" },
+        "size": { "type": "number", "description": "Normalized size (0-1)" }
+      },
+      "required": ["x", "y", "size"]
+    }
+  },
+  "required": ["id", "name", "type", "sticks", "buttons"],
+  "definitions": {
+    "stick": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "description": "Normalized X position (0-1)" },
+        "y": { "type": "number", "description": "Normalized Y position (0-1)" },
+        "radius": { "type": "number", "description": "Normalized max travel radius (0-1)" },
+        "deadzone": { "type": "number", "description": "Normalized inner deadzone (0-1)" }
+      },
+      "required": ["x", "y", "radius"]
+    },
+    "button": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "START", "BACK", "GUIDE", "LS", "RS"] },
+        "x": { "type": "number", "description": "Normalized X position (0-1)" },
+        "y": { "type": "number", "description": "Normalized Y position (0-1)" },
+        "radius": { "type": "number", "description": "Normalized touch radius (0-1)" },
+        "isAnalog": { "type": "boolean", "default": false }
+      },
+      "required": ["id", "x", "y", "radius"]
+    }
+  }
+}

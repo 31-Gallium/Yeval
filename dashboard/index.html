@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Yeval Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://unpkg.com/polygon-clipping@0.15.3/dist/polygon-clipping.umd.js"></script>
+<style>
+  /* YEVAL Custom Additions */
+  .tab-page { display: none; flex-direction: column; height: 100%; }
+  .tab-page.active { display: flex; }
+
+  /* Toggle Switch */
+  .switch, .switch * { outline: none !important; -webkit-tap-highlight-color: transparent; }
+  .switch input { display: none; }
+  .switch .slider { background-color: rgba(255,255,255,0.1); border: none !important; box-shadow: none !important; }
+  .switch input:checked + .slider { background-color: var(--accent, #3b82f6) !important; }
+  .switch input:checked + .slider:before { transform: translate(20px, -50%); }
+  .slider:before {
+    position: absolute; content: "";
+    height: 16px; width: 16px;
+    left: 4px; top: 50%;
+    transform: translateY(-50%);
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+
+  .terminal-output {
+    background: rgba(0,0,0,0.2);
+    color: #a1a1aa;
+    font-size: 13px;
+    font-family: monospace;
+    padding: 10px;
+    height: 200px;
+    overflow-y: auto;
+    border-radius: 4px;
+    border: 1px solid var(--card-border);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .action-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  /* Custom Dropdown - Glassmorphic Theme-Matched */
+  .custom-select { position: relative; font-family: 'Inter', sans-serif; font-size: 12px; box-sizing: border-box; user-select: none; }
+  .custom-select-btn { 
+    background: rgba(255, 255, 255, 0.035); 
+    color: var(--text-1); 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-radius: 8px; 
+    padding: 7px 14px; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    min-width: 130px; 
+    box-sizing: border-box; 
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+    backdrop-filter: blur(8px);
+  }
+  .custom-select-btn:hover { 
+    background: rgba(255, 255, 255, 0.07); 
+    border-color: rgba(255, 255, 255, 0.2); 
+    color: #fff;
+  }
+  .custom-select-dropdown { 
+    position: absolute; 
+    top: calc(100% + 6px); 
+    right: 0; 
+    left: 0; 
+    background: #0f1016; 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: 10px; 
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05); 
+    box-sizing: border-box; 
+    width: 100%; 
+    display: none; 
+    z-index: 1000; 
+    flex-direction: column; 
+    padding: 5px; 
+    backdrop-filter: blur(16px);
+  }
+  .custom-select-dropdown::-webkit-scrollbar { width: 4px; }
+  .custom-select-dropdown::-webkit-scrollbar-track { background: transparent; }
+  .custom-select-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 4px; }
+  .custom-select-dropdown.show { display: flex; animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .custom-select-option { 
+    padding: 7px 12px; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    color: var(--text-2); 
+    box-sizing: border-box; 
+    transition: all 0.15s ease; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+  }
+  .custom-select-option:hover { 
+    background: rgba(255, 255, 255, 0.06); 
+    color: #fff; 
+  }
+  .custom-select-option.selected { 
+    color: #fff; 
+    font-weight: 600; 
+    background: color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.03)); 
+    border-left: 2px solid var(--accent);
+  }
+
+  /* Ensure transparent background for Electron frameless window while keeping draggable regions */
+  html { background: transparent !important; }
+  body { background: rgba(0, 0, 0, 0.01) !important; padding: 0; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; box-sizing: border-box; }
+  .shell { background: transparent; width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .main-wrapper { background: var(--bg); border: 1px solid var(--panel-border); border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+    <!-- ═══ TITLE BAR ═══ -->
+    <div class="titlebar">
+        <div class="version-pill" id="version-pill">v1.0</div>
+        <div class="page-pill-wrapper">
+            <div class="page-pill" id="page-pill">
+                <span class="pill-dot"></span>
+                <span id="pill-text">Home</span>
+            </div>
+        </div>
+        <div class="window-controls">
+            <button class="win-btn min" id="min-btn" title="Minimize">
+                <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            </button>
+            <button class="win-btn tray" id="tray-btn" title="Minimize to Tray">
+                <svg viewBox="0 0 24 24"><polyline points="6 14 12 8 18 14" /></svg>
+            </button>
+            <button class="win-btn close" id="close-btn" title="Close">
+                <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══ BODY ═══ -->
+    <div class="body-wrap">
+
+        <!-- ═══ SIDEBAR ═══ -->
+        <nav class="sidebar" id="sidebar">
+            <div class="logo-area" id="toggle-sidebar">
+                <svg class="yeval-logo-svg" viewBox="0 0 800 800" width="24" height="24" style="flex-shrink: 0;">
+                    <g transform="rotate(180 400 400)">
+                        <!-- Gamepad Outline -->
+                        <path fill="none" stroke="#e0e0e0" stroke-width="30" stroke-linejoin="round" stroke-linecap="round" d="M659.6,202.2c27.2,41.8,41,83,47.6,142.5c2.2,19.7,1.4,30.9-5,71.2c-8,50.2-36.6,108.4-71,144.2 c-14.6,15.2-15.9,15.6-33.8,9.6c-21.6-7.3-44.8-23.3-80.7-55.8l-7.5-6.8c-7.5-6.8-8.4-18.3-2-26.2l0,0 c53.1-65.2,109.2-157.8,130.3-215L659.6,202.2L659.6,202.2z M140.4,202.2c-27.2,41.8-41,83-47.6,142.5c-2.2,19.7-1.4,30.9,5,71.2 c8,50.2,36.6,108.4,71,144.2c14.6,15.2,15.9,15.6,33.8,9.6c21.6-7.3,44.8-23.3,80.7-55.8l7.5-6.8c7.5-6.8,8.4-18.3,2-26.2l0,0 c-53.1-65.2-109.2-157.8-130.3-215L140.4,202.2L140.4,202.2z M324.6,659.6c45.3,11.3,105.4,11.3,150.8,0c19.4-4.8,19.4-32.4,0-37.1 c-37.1-9-57.2-17-67.2-21.8c-5.2-2.5-11.3-2.5-16.5,0c-9.9,4.8-30.1,12.8-67.2,21.8C305.2,627.2,305.2,654.8,324.6,659.6z M475.4,138.7c-45.3-11.3-105.4-11.3-150.8,0c-19.4,4.8-19.4,32.4,0,37.1c37.1,9,57.2,17,67.2,21.8c5.2,2.5,11.3,2.5,16.5,0 c9.9-4.8,30.1-12.8,67.2-21.8C494.8,171.1,494.8,143.6,475.4,138.7z"/>
+                        <!-- Center 'Y' Logo -->
+                        <path class="yeval-logo-y" fill="var(--accent)" d="M361.7,405.8l-74.3-111c-13.6-20.4,1-47.8,25.5-47.8h0.8c10.4,0,20,5.2,25.7,13.9l34.8,53.4c12.1,18.6,39.3,18.6,51.4,0 l34.8-53.4c5.7-8.7,15.3-13.9,25.7-13.9h0c24.7,0,39.3,27.7,25.3,48.1l-75.9,110.6c-3.5,5.1-5.4,11.2-5.4,17.4v100.1 c0,16.9-63.2,16.9-63.2,0V422.9C366.9,416.8,365.1,410.9,361.7,405.8z"/>
+                        <!-- D-Pad -->
+                        <path fill="#8c959f" d="M154.5,419.6h5.5c3.9,0,7-3.2,7-7V407c0-3.9,3.2-7,7-7h1.3c3.9,0,7,3.2,7,7v5.5c0,3.9,3.2,7,7,7h5.5c3.9,0,7,3.2,7,7l0,0 c0,3.9-3.2,7-7,7h-5.5c-3.9,0-7,3.2-7,7v5.5c0,3.9-3.2,7-7,7h-1.3c-3.9,0-7-3.2-7-7v-5.5c0-3.9-3.2-7-7-7h-5.5c-3.9,0-7-3.2-7-7 l0,0C147.5,422.8,150.6,419.6,154.5,419.6z"/>
+                        <!-- Action Buttons -->
+                        <circle fill="#8c959f" cx="627" cy="455" r="11"/>
+                        <circle fill="#8c959f" cx="627" cy="399" r="11"/>
+                        <circle fill="#8c959f" cx="655" cy="427" r="11"/>
+                        <circle fill="#8c959f" cx="599" cy="427" r="11"/>
+                    </g>
+                </svg>
+                <span class="logo-name">YEVAL</span>
+            </div>
+
+            <!-- Nav Items -->
+            <div class="nav-item active" data-tab="home" data-label="Home" data-color="var(--accent-general)">
+                <div class="nav-icon" style="-webkit-mask-image: url('../assets/home.svg'); background-color: currentColor;"></div>
+                <span class="nav-label">Home</span>
+            </div>
+
+            <div class="nav-item" data-tab="halo" data-label="Profiles" data-color="var(--accent-halo)">
+                <div class="nav-icon" style="-webkit-mask-image: url('../assets/layout.svg'); background-color: currentColor;"></div>
+                <span class="nav-label">Profiles</span>
+            </div>
+            
+            <div class="nav-item" style="margin-top: auto;" data-tab="system" data-label="System" data-color="var(--accent-system)">
+                <div class="nav-icon" style="-webkit-mask-image: url('assets/system.svg');"></div>
+                <span class="nav-label">System</span>
+            </div>
+        </nav>
+
+        <!-- ═══ MAIN ═══ -->
+        <div class="main-wrapper">
+            <canvas id="bgGridCanvas" class="bg-grid-canvas"></canvas>
+            <main class="main" id="main-panel">
+
+            <!-- ════════════════════════════════════════════════
+                 HOME (Device Manager)
+                 ════════════════════════════════════════════════ -->
+            <div class="tab-page active" id="tab-home" data-accent="var(--accent-general)" style="--section-accent: var(--accent-general);">
+                <div class="section-header">
+                    <span class="sh-text">Device Manager</span>
+                    <span id="statusText" style="margin-left:auto; color: var(--text-2);">Offline</span>
+                </div>
+                
+                <div style="padding: 16px 24px; max-width: 1080px; margin: 0 auto; width: 100%;">
+                    <!-- Device Manager Card -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+                        <!-- Device List -->
+                        <div id="deviceListContainer" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Dynamically populated by renderer.js -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════
+                 PROFILES (Halo)
+                 ════════════════════════════════════════════════ -->
+            <div class="tab-page" id="tab-halo" data-accent="var(--accent-halo)" style="--section-accent: var(--accent-halo);">
+                <!-- Header -->
+                <div class="section-header" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; position: relative;">
+                    <div style="flex: 1; display: flex; align-items: center; gap: 6px;" id="editorPlayerBadges">
+                        <span class="slot-badge" data-slot="0" title="Assigned to Player 1">P1</span>
+                        <span class="slot-badge" data-slot="1" title="Assigned to Player 2">P2</span>
+                        <span class="slot-badge" data-slot="2" title="Assigned to Player 3">P3</span>
+                        <span class="slot-badge" data-slot="3" title="Assigned to Player 4">P4</span>
+                    </div>
+                    
+                    <!-- Center: Toggle -->
+                    <div class="layout-toggle" id="layoutModeToggle" style="display: flex;">
+                        <div class="toggle-option active" data-mode="button" style="display: flex; align-items: center; justify-content: center; padding: 6px 12px;" title="Button Mode">
+                            <span style="display: inline-block; width: 16px; height: 16px; background-color: currentColor; -webkit-mask-image: url('../assets/gamepad.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                        </div>
+                        <div class="toggle-option" data-mode="zone" style="display: flex; align-items: center; justify-content: center; padding: 6px 12px;" title="Zone Mode">
+                            <span style="display: inline-block; width: 16px; height: 16px; background-color: currentColor; -webkit-mask-image: url('../assets/layout.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Actions (Profile, Reset, Save) -->
+                    <div style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+                        <div class="custom-select" id="profileDropdown">
+                            <div class="custom-select-btn" id="profileDropdownBtn">
+                                <span id="profileDropdownText">Default</span>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                            <div class="custom-select-dropdown" id="profileDropdownList">
+                                <div class="custom-select-option selected" data-value="default">Default</div>
+                            </div>
+                        </div>
+                        <button id="btnAddProfile" style="background: transparent; border: none; cursor: pointer; display: flex; align-items: center; padding: 4px; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Add Custom Profile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-halo)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        
+                        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+                        
+                        <button id="btnResetProfile" class="btn" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.color='#fff'; this.style.borderColor='rgba(255,255,255,0.4)'" onmouseout="this.style.color='var(--text-2)'; this.style.borderColor='rgba(255,255,255,0.15)'" title="Reset to Default">
+                            <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/reset.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                        </button>
+                        <button id="btnSaveProfile" class="btn btn-primary" style="background: var(--accent-halo); border-radius: 20px; padding: 8px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; border: none; color: #fff; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" title="Save Layout">
+                            <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/save.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-scroll-container" style="flex: 1; display: flex; flex-direction: column; padding: 24px; gap: 16px; min-height: 0; align-items: center; overflow-y: auto;">
+                    
+                    <!-- Glassmorphic Workspace Container -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; max-width: 1150px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); backdrop-filter: blur(10px);">
+                        <div style="display: flex; justify-content: center; align-items: stretch; width: 100%; position: relative;">
+                            
+                            <!-- Canvas -->
+                            <div id="editorCardWrapper" style="flex: 1; max-width: 1000px; aspect-ratio: 20/9; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #06060a; position: relative; box-shadow: inset 0 4px 24px rgba(0,0,0,0.5); padding: 12px; display: flex; justify-content: center; align-items: center; transition: all 0.3s;">
+                                <canvas id="editorCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Zone Toolbar & Inventory -->
+                        <div id="zoneToolbar" style="width: 100%; max-width: 1000px; display: none; flex-direction: column; gap: 16px; flex-shrink: 0; align-items: center;">
+                            <div style="display: flex; gap: 16px; justify-content: space-between; align-items: center; width: 100%; flex-wrap: nowrap;">
+                                
+                                <!-- Curve/Straight Toggle -->
+                                <div class="layout-toggle" id="curveModeToggle" style="gap: 4px; padding: 6px; display: flex;">
+                                    <div class="toggle-option active" data-mode="curve" style="padding: 6px 12px; display: flex; justify-content: center; align-items: center;" title="Curved">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/curved.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </div>
+                                    <div class="toggle-option" data-mode="straight" style="padding: 6px 12px; display: flex; justify-content: center; align-items: center;" title="Straight">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/straight.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Inventory -->
+                                <div class="layout-toggle zone-inventory-pill" style="max-width: 540px; margin: 0 auto; padding: 2px; overflow: hidden; position: relative; display: flex; align-items: center;">
+                                    <div class="zone-inventory-track custom-horizontal-scrollbar" style="display: flex; gap: 6px; padding: 4px 14px; overflow-x: auto; flex-wrap: nowrap; width: 100%;" id="zoneInventory">
+                                        <!-- Injected by JS -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Undo/Redo/Clear -->
+                                <div class="layout-toggle" style="gap: 4px; padding: 6px; display: flex;">
+                                    <button class="toggle-option" style="background:transparent; border:none; padding: 6px 12px; display: flex; justify-content: center; align-items: center;" id="btnZoneUndo" disabled title="Undo">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/undo.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </button>
+                                    <button class="toggle-option" style="background:transparent; border:none; padding: 6px 12px; display: flex; justify-content: center; align-items: center;" id="btnZoneRedo" disabled title="Redo">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/redo.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </button>
+                                    <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+                                    <button class="toggle-option danger" style="background:transparent; border:none; color: var(--red); padding: 6px 12px; display: flex; justify-content: center; align-items: center;" id="btnZoneClear" title="Clear All">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/eraser.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="zoneInstructions" style="font-size: 13px; color: rgba(255,255,255,0.7); text-align: center; font-weight: 500;">
+                                Select a button from the bar below to draw or edit its zone.
+                            </div>
+                        </div>
+                        
+                        <!-- Button Toolbar -->
+                        <div id="buttonToolbar" style="width: 100%; max-width: 1000px; display: none; flex-direction: column; gap: 16px; flex-shrink: 0; align-items: center;">
+                            <div style="display: flex; gap: 16px; justify-content: center; align-items: center; width: 100%; flex-wrap: nowrap;">
+                                
+                                <!-- Size Slider Pill -->
+                                <div class="layout-toggle" style="gap: 8px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; width: 250px;">
+                                    <button id="btnSizeMinus" style="background:transparent; border:none; color:white; cursor:pointer; font-weight:bold; font-size: 16px;">-</button>
+                                    <input type="range" id="buttonSizeSlider" min="40" max="160" value="100" style="flex-grow: 1; margin: 0 8px; cursor: pointer;" title="Button Scale">
+                                    <button id="btnSizePlus" style="background:transparent; border:none; color:white; cursor:pointer; font-weight:bold; font-size: 16px;">+</button>
+                                </div>
+                                
+                                <!-- Undo/Redo Pill -->
+                                <div class="layout-toggle" style="gap: 4px; padding: 6px; display: flex;">
+                                    <button class="toggle-option" style="background:transparent; border:none; padding: 6px 12px; display: flex; justify-content: center; align-items: center;" id="btnButtonUndo" disabled title="Undo">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/undo.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </button>
+                                    <button class="toggle-option" style="background:transparent; border:none; padding: 6px 12px; display: flex; justify-content: center; align-items: center;" id="btnButtonRedo" disabled title="Redo">
+                                        <span style="display: inline-block; width: 14px; height: 14px; background-color: currentColor; -webkit-mask-image: url('../assets/redo.svg'); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════
+                 SYSTEM
+                 ════════════════════════════════════════════════ -->
+            <div class="tab-page" id="tab-system" data-accent="var(--accent-system)" style="--section-accent: var(--accent-system);">
+                <div class="section-header">
+                    <span class="sh-text">System Configuration</span>
+                </div>
+                
+                <div style="padding: 32px; display: flex; flex-direction: column; gap: 24px; max-width: 900px; margin: 0 auto; width: 100%;">
+                    
+                    <!-- Settings Group: General -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; position: relative; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+                        
+                        <!-- Connection Route Configuration -->
+                        <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 30;">
+                            <div>
+                                <h3 style="color: var(--text-1); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">Connection Route</h3>
+                                <p style="color: var(--text-2); margin: 0; font-size: 13px;">Select allowed connection methods for mobile gamepads.</p>
+                            </div>
+                            <div class="custom-select" id="connectionRouteDropdown" style="min-width: 220px; position: relative;">
+                                <div class="custom-select-btn" id="connectionRouteDropdownBtn" style="min-width: 220px; justify-content: space-between;">
+                                    <span id="connectionRouteDropdownText">Auto (Seamless Failover)</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                                <div class="custom-select-dropdown" id="connectionRouteDropdownList" style="min-width: 220px;">
+                                    <div class="custom-select-option selected" data-value="auto">Auto (Seamless Failover)</div>
+                                    <div class="custom-select-option" data-value="usb_only">Wired Only (USB)</div>
+                                    <div class="custom-select-option" data-value="wifi_only">Wireless Only (Wi-Fi)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 20;">
+                            <div>
+                                <h3 style="color: var(--text-1); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">Slot Release Mode</h3>
+                                <p style="color: var(--text-2); margin: 0; font-size: 13px;">Choose whether inactive controller slots are freed immediately, after a timeout, or held until manually kicked.</p>
+                            </div>
+                            <div class="custom-select" id="releaseModeDropdown" style="min-width: 220px; position: relative;">
+                                <div class="custom-select-btn" id="releaseModeDropdownBtn" style="min-width: 220px; justify-content: space-between;">
+                                    <span id="releaseModeDropdownText">Auto-Release (15s)</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                                <div class="custom-select-dropdown" id="releaseModeDropdownList" style="min-width: 220px;">
+                                    <div class="custom-select-option" data-value="instant">Instant Release</div>
+                                    <div class="custom-select-option selected" data-value="auto_15">Auto-Release (15s)</div>
+                                    <div class="custom-select-option" data-value="auto_30">Auto-Release (30s)</div>
+                                    <div class="custom-select-option" data-value="manual">Manual Hold</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Backend Engine -->
+                        <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="color: var(--text-1); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">Backend Engine Status</h3>
+                                <p style="color: var(--text-2); margin: 0; font-size: 13px;">The C++ input engine manages the virtual controller and UDP socket.</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; background: rgba(67, 208, 106, 0.1); padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(67, 208, 106, 0.2);">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green);"></div>
+                                <span style="color: var(--green); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings Group: Logs -->
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <h3 style="color: var(--text-1); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">System Live Logs</h3>
+                            <p style="color: var(--text-2); margin: 0; font-size: 13px;">Monitor real-time events and diagnostic output from the backend engine.</p>
+                        </div>
+                        <div id="logContainer" class="terminal-output" style="border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); background: rgba(0,0,0,0.3); height: 250px;">
+                          Welcome to the YEVAL System Logs.
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            </main>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Confirm Modal -->
+<div id="customConfirmModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); border-radius: 16px; overflow: hidden;">
+    <div style="background: var(--bg); border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; color: var(--text-1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--red);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Confirm Action</h3>
+        </div>
+        <p id="customConfirmMessage" style="margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.5;"></p>
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px;">
+            <button id="customConfirmCancel" class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-1); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 16px; cursor: pointer; transition: background 0.2s;">Cancel</button>
+            <button id="customConfirmOk" class="btn btn-danger" style="background: var(--red); color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.showConfirm = function(message, onConfirm) {
+    const modal = document.getElementById('customConfirmModal');
+    const msgEl = document.getElementById('customConfirmMessage');
+    const btnCancel = document.getElementById('customConfirmCancel');
+    const btnOk = document.getElementById('customConfirmOk');
+    
+    msgEl.textContent = message;
+    modal.style.display = 'flex';
+    
+    // Clean up old listeners
+    const newCancel = btnCancel.cloneNode(true);
+    const newOk = btnOk.cloneNode(true);
+    btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+    btnOk.parentNode.replaceChild(newOk, btnOk);
+    
+    newCancel.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+    newOk.addEventListener('click', () => {
+        modal.style.display = 'none';
+        onConfirm();
+    });
+};
+</script>
+
+    <script src="grid_background.js"></script>
+    <script src="button_svgs.js"></script>
+    <script src="renderer.js"></script>
+    <script src="editor.js"></script>
+    <script src="zone_editor.js"></script>
+    <script src="slot_manager.js"></script>
+</body>
+</html>

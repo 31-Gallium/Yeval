@@ -1,0 +1,88 @@
+# ========================================
+# Yeval - .gitignore
+# ========================================
+
+# ----------------------------------------
+# 1. Root & General Build Artifacts
+# ----------------------------------------
+build/
+dist/
+out/
+bin/
+release_artifacts/
+*.log
+*.tmp
+*.bak
+
+# ----------------------------------------
+# 2. Dashboard (Node.js & Electron)
+# ----------------------------------------
+dashboard/node_modules/
+dashboard/dist/
+dashboard/build/
+dashboard/out/
+dashboard/.pnp.*
+dashboard/.pnp.js
+dashboard/npm-debug.log*
+dashboard/yarn-error.log*
+dashboard/yarn-debug.log*
+dashboard/backend_debug.log
+
+# ----------------------------------------
+# 3. Windows Engine (C++ / CMake / Visual Studio)
+# ----------------------------------------
+windows/build/
+windows/.vs/
+windows/out/
+windows/CMakeCache.txt
+windows/CMakeFiles/
+windows/*.dir/
+windows/*.sln
+windows/*.vcxproj*
+windows/*.exe
+windows/*.pdb
+windows/*.ilk
+windows/*.exp
+windows/*.lib
+windows/*.obj
+windows/*.log
+
+# ----------------------------------------
+# 4. Android Client (Kotlin / Gradle / Android Studio)
+# ----------------------------------------
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/captures/
+android/app/release/
+android/app/debug/
+# Keystore & Signing keys
+android/*.jks
+android/*.keystore
+
+# ----------------------------------------
+# 5. OS & IDE Specific
+# ----------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+*.suo
+*.user
+
+# ----------------------------------------
+# 6. External Tools, Caches & Scratch
+# ----------------------------------------
+# graft's local graph cache — regenerable via `graft build`
+/graft/
+
+# Scratchpad scripts & temporary data
+/scratch/
+__pycache__/
+*.pyc
+*.pyo

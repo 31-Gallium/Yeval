@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+  }
+  html, body {
+    margin: 0;
+    padding: 10px;
+    width: 100%;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: transparent;
+    color: #fff;
+    overflow: hidden;
+  }
+  
+  .tray-container {
+    background: rgba(14, 14, 18, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 14px;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .slots-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .device-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 8px 10px;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  
+  .device-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  
+  .device-card.empty {
+    background: rgba(255, 255, 255, 0.015);
+    border-color: rgba(255, 255, 255, 0.04);
+  }
+  
+  .slot-badge-tray {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    flex-shrink: 0;
+  }
+  
+  .slot-badge-tray.empty {
+    color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.015);
+  }
+  
+  .device-info-tray {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+  }
+  
+  .device-name-tray {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f3f4f6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .empty-text-tray {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 500;
+  }
+  
+  .device-meta-tray {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .battery-badge-tray,
+  .connection-badge-tray {
+    height: 18px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  
+  .battery-badge-tray {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .battery-badge-tray.low {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+  
+  .connection-badge-tray {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  
+  .connection-badge-tray.usb {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+  
+  .disconnect-btn-tray {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  
+  .disconnect-btn-tray:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+  
+  .actions-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+  }
+  
+  .action-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+  
+  .action-btn.exit:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #ef4444;
+  }
+  
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="tray-container">
+  <div class="slots-container" id="slotsContainer">
+    <!-- Initial 4 Empty Slots -->
+    <div class="device-card empty">
+      <div class="slot-badge-tray empty">P1</div>
+      <div class="device-info-tray">
+        <div class="empty-text-tray">No device connected</div>
+      </div>
+    </div>
+    <div class="device-card empty">
+      <div class="slot-badge-tray empty">P2</div>
+      <div class="device-info-tray">
+        <div class="empty-text-tray">No device connected</div>
+      </div>
+    </div>
+    <div class="device-card empty">
+      <div class="slot-badge-tray empty">P3</div>
+      <div class="device-info-tray">
+        <div class="empty-text-tray">No device connected</div>
+      </div>
+    </div>
+    <div class="device-card empty">
+      <div class="slot-badge-tray empty">P4</div>
+      <div class="device-info-tray">
+        <div class="empty-text-tray">No device connected</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="actions-row">
+    <button class="action-btn" id="btnSettings">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      Dashboard
+    </button>
+    <button class="action-btn exit" id="btnExit">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      Exit
+    </button>
+  </div>
+</div>
+
+<script>
+  const { ipcRenderer } = require('electron');
+
+  function hideTrayWindow() {
+    ipcRenderer.send('tray-hide-window');
+  }
+
+  document.getElementById('btnSettings').addEventListener('click', () => {
+    ipcRenderer.send('tray-action-settings');
+  });
+
+  document.getElementById('btnExit').addEventListener('click', () => {
+    ipcRenderer.send('tray-action-exit');
+  });
+
+  const wifiSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>`;
+  const usbSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="3" x2="12" y2="9"></line><line x1="12" y1="15" x2="12" y2="21"></line></svg>`;
+
+  ipcRenderer.on('tray-update-slots', (event, slots) => {
+    const container = document.getElementById('slotsContainer');
+    container.innerHTML = '';
+    
+    for (let i = 0; i < 4; i++) {
+      const device = slots && slots.length > i ? slots[i] : null;
+      
+      if (device) {
+        const batteryVal = device.battery !== undefined ? device.battery : 100;
+        const isLow = batteryVal <= 20;
+        const connType = device.connectionType || 'Wi-Fi';
+        const isUsb = connType.toUpperCase() === 'USB';
+        
+        container.innerHTML += `
+          <div class="device-card">
+            <div class="slot-badge-tray">P${i + 1}</div>
+            <div class="device-info-tray">
+              <div class="device-name-tray">${device.name || 'Android Phone'}</div>
+              <div class="device-meta-tray">
+                <span class="battery-badge-tray ${isLow ? 'low' : ''}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect>
+                    <line x1="22" y1="11" x2="22" y2="13"></line>
+                  </svg>
+                  ${batteryVal}%
+                </span>
+                <span class="connection-badge-tray ${isUsb ? 'usb' : ''}">
+                  ${isUsb ? usbSvg : wifiSvg}
+                  ${connType}
+                </span>
+              </div>
+            </div>
+            <button class="disconnect-btn-tray" onclick="kickDevice('${device.ip}')" title="Disconnect">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        `;
+      } else {
+        container.innerHTML += `
+          <div class="device-card empty">
+            <div class="slot-badge-tray empty">P${i + 1}</div>
+            <div class="device-info-tray">
+              <div class="empty-text-tray">No device connected</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  });
+
+  window.kickDevice = function(ip) {
+    ipcRenderer.send('kick-device', ip);
+    hideTrayWindow();
+  };
+</script>
+</body>
+</html>

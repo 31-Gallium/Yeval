@@ -1,0 +1,54 @@
+{
+  "name": "yeval-dashboard",
+  "version": "1.0.0",
+  "description": "Desktop dashboard for Mobile-to-PC Xbox Controller",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.yeval.dashboard",
+    "productName": "Yeval Dashboard",
+    "win": {
+      "target": "nsis",
+      "icon": "../assets/Yeval.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "artifactName": "${productName}-${version}-Setup.exe",
+      "installerIcon": "../assets/Yeval.ico",
+      "uninstallerIcon": "../assets/Yeval.ico",
+      "installerSidebar": "../assets/installerSidebar.png",
+      "uninstallerSidebar": "../assets/installerSidebar.png",
+      "installerHeaderIcon": "../assets/Yeval.ico"
+    },
+    "extraResources": [
+      {
+        "from": "../windows/build/Release/MobileControllerBackend.exe",
+        "to": "backend/YevalMobileBackend.exe"
+      },
+      {
+        "from": "../assets",
+        "to": "assets"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.15.3",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.35.3"
+  },
+  "author": "31-Gallium",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
