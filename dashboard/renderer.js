@@ -650,29 +650,23 @@ ipcRenderer.on('backend-vigem-missing', () => {
 });
 
 const installVigemBtn = document.getElementById('installVigemBtn');
-const dismissVigemBtn = document.getElementById('dismissVigemBtn');
 const exitVigemAppBtn = document.getElementById('exitVigemAppBtn');
-const closeVigemModalBtn = document.getElementById('closeVigemModalBtn');
 const vigemStatusMsg = document.getElementById('vigemStatusMsg');
 
 if (installVigemBtn) {
   installVigemBtn.addEventListener('click', async () => {
     installVigemBtn.disabled = true;
-    installVigemBtn.textContent = 'Launching Installer / Repair...';
+    installVigemBtn.textContent = 'Launching Installer...';
     if (vigemStatusMsg) {
       vigemStatusMsg.style.display = 'block';
-      vigemStatusMsg.textContent = 'Please complete the ViGEmBus setup/repair wizard on screen.';
+      vigemStatusMsg.style.color = '#cbd5e1';
+      vigemStatusMsg.textContent = 'Please complete the setup/repair/uninstall wizard on screen.';
     }
     
     try {
       const res = await ipcRenderer.invoke('install-vigem-driver');
       if (res && res.success) {
-        installVigemBtn.textContent = 'Waiting for driver...';
-        // Check and restart backend periodically
-        const checkInterval = setInterval(async () => {
-          await ipcRenderer.invoke('restart-backend');
-        }, 3000);
-        setTimeout(() => clearInterval(checkInterval), 60000);
+        installVigemBtn.textContent = 'Setup Window Active...';
       } else {
         installVigemBtn.disabled = false;
         installVigemBtn.textContent = 'Retry Install / Repair';
@@ -686,22 +680,36 @@ if (installVigemBtn) {
   });
 }
 
+ipcRenderer.on('vigem-installed-success', () => {
+  if (vigemStatusMsg) {
+    vigemStatusMsg.style.display = 'block';
+    vigemStatusMsg.style.color = '#38bdf8';
+    vigemStatusMsg.textContent = 'ViGEmBus Driver detected! Restarting Yeval to initialize controller slots...';
+  }
+  if (installVigemBtn) {
+    installVigemBtn.disabled = true;
+    installVigemBtn.textContent = 'Restarting App...';
+  }
+  setTimeout(() => {
+    ipcRenderer.invoke('restart-app');
+  }, 1800);
+});
+
+ipcRenderer.on('vigem-installer-closed', () => {
+  if (installVigemBtn) {
+    installVigemBtn.disabled = false;
+    installVigemBtn.textContent = 'Run Installer Again';
+  }
+  if (vigemStatusMsg) {
+    vigemStatusMsg.style.display = 'block';
+    vigemStatusMsg.style.color = '#94a3b8';
+    vigemStatusMsg.textContent = 'Installer closed. If you uninstalled remnants, click above to install now.';
+  }
+});
+
 if (exitVigemAppBtn) {
   exitVigemAppBtn.addEventListener('click', () => {
     ipcRenderer.send('window-close');
-  });
-}
-
-if (closeVigemModalBtn) {
-  closeVigemModalBtn.addEventListener('click', () => {
-    ipcRenderer.send('window-close');
-  });
-}
-
-if (dismissVigemBtn) {
-  dismissVigemBtn.addEventListener('click', () => {
-    const modal = document.getElementById('vigemDriverModal');
-    if (modal) modal.style.display = 'none';
   });
 }
 

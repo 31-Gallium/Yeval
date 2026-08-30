@@ -934,17 +934,22 @@ ipcMain.handle('install-vigem-driver', async () => {
       targetInstaller = tempInstaller;
     }
 
-    // Launch with administrative elevation via PowerShell Start-Process -Verb RunAs
+    // Launch with administrative elevation via PowerShell Start-Process -Verb RunAs -Wait
     const safePath = targetInstaller.replace(/'/g, "''");
     const psCommand = `Start-Process -FilePath '${safePath}' -Verb RunAs -Wait`;
     exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`, (err) => {
       if (err) {
         console.error('[ViGEm Elevation Error]', err);
-      } else {
-        setTimeout(() => {
-          if (!backendProcess) startBackend();
-        }, 1500);
       }
+      // Check if ViGEm driver service was registered into Windows
+      exec('sc.exe query ViGEmBus', (scErr, stdout) => {
+        const isInstalled = !scErr && stdout && (stdout.includes('RUNNING') || stdout.includes('STATE') || stdout.includes('STOPPED'));
+        if (isInstalled) {
+          sendToRenderer('vigem-installed-success');
+        } else {
+          sendToRenderer('vigem-installer-closed');
+        }
+      });
     });
 
     return { success: true };
@@ -952,6 +957,20 @@ ipcMain.handle('install-vigem-driver', async () => {
     console.error('[ViGEm Install Error]', err);
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle('restart-app', () => {
+  try {
+    if (backendProcess) {
+      backendProcess.kill();
+      backendProcess = null;
+    }
+  } catch (e) {}
+  try {
+    exec('taskkill /F /IM YevalMobileBackend.exe /IM MobileControllerBackend.exe', () => {});
+  } catch (e) {}
+  app.relaunch();
+  app.exit(0);
 });
 
 ipcMain.handle('restart-backend', async () => {
