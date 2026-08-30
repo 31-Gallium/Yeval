@@ -39,8 +39,9 @@
   ${If} $0 == ""
     DetailPrint "Installing ViGEmBus Kernel Driver..."
     SetOutPath "$INSTDIR\resources\prereqs"
-    ExecWait '"$INSTDIR\resources\prereqs\ViGEmBusSetup.exe" /quiet /norestart' $1
-    DetailPrint "ViGEmBus installation finished with exit code: $1"
+    IfFileExists "$INSTDIR\resources\prereqs\ViGEmBusSetup.exe" 0 +3
+      ExecWait '"$INSTDIR\resources\prereqs\ViGEmBusSetup.exe" /passive /norestart' $1
+      DetailPrint "ViGEmBus setup finished with code: $1"
   ${Else}
     DetailPrint "ViGEmBus Kernel Driver is already installed."
   ${EndIf}

@@ -1,6 +1,7 @@
 {
   "name": "yeval-dashboard",
   "version": "1.0.0",
+  "author": "31-Gallium",
   "description": "Virtual Xbox Controller for PC",
   "main": "main.js",
   "scripts": {
@@ -10,10 +11,17 @@
   "build": {
     "appId": "com.yeval.dashboard",
     "productName": "Yeval Dashboard",
+    "copyright": "Copyright © 2026 31-Gallium",
     "win": {
       "target": "nsis",
       "icon": "../assets/Yeval.svg",
-      "requestedExecutionLevel": "requireAdministrator"
+      "signtoolOptions": {
+        "certificateFile": "../certs/31-Gallium.pfx",
+        "certificatePassword": "yeval",
+        "publisherName": [
+          "31-Gallium"
+        ]
+      }
     },
     "nsis": {
       "oneClick": true,
