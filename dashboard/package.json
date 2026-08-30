@@ -15,15 +15,19 @@
       "icon": "../assets/Yeval.svg"
     },
     "nsis": {
-      "oneClick": true,
-      "perMachine": false,
+      "oneClick": false,
+      "perMachine": true,
       "allowElevation": true,
-      "runAfterFinish": true,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "artifactName": "${productName}-${version}-Setup.exe",
       "installerIcon": "../assets/Yeval.ico",
       "uninstallerIcon": "../assets/Yeval.ico",
+      "installerSidebar": "../assets/installerSidebar.png",
+      "uninstallerSidebar": "../assets/installerSidebar.png",
+      "installerHeader": "../assets/installerHeader.png",
+      "installerHeaderIcon": "../assets/Yeval.ico",
       "include": "installer.nsh"
     },
     "extraResources": [

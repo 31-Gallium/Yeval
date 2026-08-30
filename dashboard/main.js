@@ -16,13 +16,14 @@ if (!gotTheLock) {
 }
 
 app.on('second-instance', (event, commandLine, workingDirectory) => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     if (!mainWindow.isVisible()) mainWindow.show();
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
-  } else if (trayWindow && !trayWindow.isDestroyed()) {
-      // If we only have the tray window, we might want to restore the main window
-      restoreFromTray();
+  } else if (typeof trayWindow !== 'undefined' && trayWindow && !trayWindow.isDestroyed()) {
+    restoreFromTray();
+  } else {
+    createWindow();
   }
 });
 
@@ -890,28 +891,43 @@ ipcMain.handle('install-vigem-driver', async () => {
     let targetInstaller = bundledInstaller;
 
     if (!fs.existsSync(bundledInstaller)) {
-      const https = require('https');
       const tempInstaller = path.join(app.getPath('temp'), 'ViGEmBusSetup.exe');
-      const file = fs.createWriteStream(tempInstaller);
       
-      await new Promise((resolve, reject) => {
-        https.get('https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe', response => {
-          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-            https.get(response.headers.location, redirectResp => {
-              redirectResp.pipe(file);
-              file.on('finish', () => { file.close(resolve); });
-            }).on('error', reject);
-          } else {
-            response.pipe(file);
-            file.on('finish', () => { file.close(resolve); });
-          }
-        }).on('error', reject);
-      });
+      function downloadFile(url, dest, maxRedirects = 5) {
+        return new Promise((resolve, reject) => {
+          if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
+          const https = require('https');
+          const http = require('http');
+          const client = url.startsWith('https') ? https : http;
+          
+          client.get(url, { headers: { 'User-Agent': 'Yeval-Dashboard' } }, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              return downloadFile(res.headers.location, dest, maxRedirects - 1).then(resolve).catch(reject);
+            }
+            if (res.statusCode !== 200) {
+              return reject(new Error(`Failed with status ${res.statusCode}`));
+            }
+            const fileStream = fs.createWriteStream(dest);
+            res.pipe(fileStream);
+            fileStream.on('finish', () => {
+              fileStream.close(resolve);
+            });
+          }).on('error', reject);
+        });
+      }
+
+      await downloadFile('https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe', tempInstaller);
       targetInstaller = tempInstaller;
     }
 
-    const { shell } = require('electron');
-    await shell.openPath(targetInstaller);
+    // Launch with administrative elevation via PowerShell Start-Process -Verb RunAs
+    const psCommand = `Start-Process -FilePath "${targetInstaller}" -Verb RunAs`;
+    exec(`powershell -NoProfile -Command "${psCommand}"`, (err) => {
+      if (err) {
+        console.error('[ViGEm Elevation Error]', err);
+      }
+    });
+
     return { success: true };
   } catch (err) {
     console.error('[ViGEm Install Error]', err);
