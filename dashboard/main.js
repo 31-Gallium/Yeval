@@ -921,10 +921,15 @@ ipcMain.handle('install-vigem-driver', async () => {
     }
 
     // Launch with administrative elevation via PowerShell Start-Process -Verb RunAs
-    const psCommand = `Start-Process -FilePath "${targetInstaller}" -Verb RunAs`;
-    exec(`powershell -NoProfile -Command "${psCommand}"`, (err) => {
+    const safePath = targetInstaller.replace(/'/g, "''");
+    const psCommand = `Start-Process -FilePath '${safePath}' -Verb RunAs -Wait`;
+    exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`, (err) => {
       if (err) {
         console.error('[ViGEm Elevation Error]', err);
+      } else {
+        setTimeout(() => {
+          if (!backendProcess) startBackend();
+        }, 1500);
       }
     });
 

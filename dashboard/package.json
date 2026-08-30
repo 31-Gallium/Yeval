@@ -12,11 +12,12 @@
     "productName": "Yeval Dashboard",
     "win": {
       "target": "nsis",
-      "icon": "../assets/Yeval.svg"
+      "icon": "../assets/Yeval.svg",
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false,
+      "perMachine": true,
       "allowElevation": true,
       "runAfterFinish": true,
       "createDesktopShortcut": "always",
