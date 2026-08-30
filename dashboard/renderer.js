@@ -1128,11 +1128,63 @@ ipcRenderer.on('update-status', (event, data) => {
 });
 
 
+// ==========================================
+// FIRST-RUN ONBOARDING SETUP MODAL
+// ==========================================
+const firstRunModal = document.getElementById('firstRunModal');
+const firstRunLaunchBtn = document.getElementById('firstRunLaunchBtn');
+const firstRunDriverStatus = document.getElementById('firstRunDriverStatus');
+
+function checkFirstRunOnboarding() {
+  try {
+    const configPath = path.join(userDataPath, 'config.json');
+    const cfg = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    if (!cfg.hasCompletedFirstRun) {
+      if (firstRunModal) {
+        firstRunModal.style.display = 'flex';
+      }
+    }
+  } catch (e) {}
+}
+
+if (firstRunLaunchBtn) {
+  firstRunLaunchBtn.addEventListener('click', () => {
+    try {
+      const configPath = path.join(userDataPath, 'config.json');
+      const cfg = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+      cfg.hasCompletedFirstRun = true;
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+    } catch (e) {}
+
+    if (firstRunModal) {
+      firstRunModal.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      firstRunModal.style.opacity = '0';
+      firstRunModal.style.transform = 'scale(1.03)';
+      setTimeout(() => {
+        firstRunModal.style.display = 'none';
+      }, 400);
+    }
+  });
+}
+
+
+ipcRenderer.on('backend-vigem-missing', () => {
+  if (firstRunDriverStatus) {
+    firstRunDriverStatus.textContent = 'Missing';
+    firstRunDriverStatus.style.color = '#ef4444';
+  }
+});
+
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCustomTooltips);
+        document.addEventListener('DOMContentLoaded', () => {
+            initCustomTooltips();
+            checkFirstRunOnboarding();
+        });
     } else {
         initCustomTooltips();
+        checkFirstRunOnboarding();
     }
 }
+
 
