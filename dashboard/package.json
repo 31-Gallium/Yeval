@@ -23,7 +23,8 @@
       "uninstallerIcon": "../assets/Yeval.ico",
       "installerSidebar": "../assets/installerSidebar.png",
       "uninstallerSidebar": "../assets/installerSidebar.png",
-      "installerHeaderIcon": "../assets/Yeval.ico"
+      "installerHeaderIcon": "../assets/Yeval.ico",
+      "include": "installer.nsh"
     },
     "extraResources": [
       {
@@ -33,6 +34,10 @@
       {
         "from": "../assets",
         "to": "assets"
+      },
+      {
+        "from": "prereqs",
+        "to": "prereqs"
       }
     ],
     "directories": {

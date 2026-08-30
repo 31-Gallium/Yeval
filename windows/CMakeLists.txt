@@ -4,6 +4,9 @@ project(MobileControllerBackend CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Statically link C/C++ Runtime Library (/MT) so vc_redist is not required on target PCs
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 include(FetchContent)
 
 # Fetch ViGEmClient SDK automatically

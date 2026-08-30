@@ -845,23 +845,31 @@ function startBackend() {
             }
         }
         
-        // Legacy [RUMBLE] parsing removed; now handled natively in C++ backend over active transport
+        // Check for missing ViGEmBus kernel driver
+        if (line.includes('Failed to connect to bus driver') || line.includes('Ensure ViGEmBus is installed')) {
+            sendToRenderer('backend-vigem-missing');
+        }
       }
     });
 
     backendProcess.stderr.on('data', (data) => {
-      console.error(`[Backend ERROR] ${data.toString()}`);
-      require('fs').appendFileSync(path.join(__dirname, 'backend_debug.log'), `[Backend ERROR] ${data.toString()}\n`);
-      sendToRenderer('backend-log', `ERROR: ${data.toString()}`);
+      const text = data.toString();
+      console.error(`[Backend ERROR] ${text.trim()}`);
+      require('fs').appendFileSync(path.join(__dirname, 'backend_debug.log'), `[Backend ERROR] ${text.trim()}\n`);
+      sendToRenderer('backend-log', `ERROR: ${text.trim()}`);
+
+      if (text.includes('Failed to connect to bus driver') || text.includes('Ensure ViGEmBus is installed')) {
+        sendToRenderer('backend-vigem-missing');
+      }
     });
 
     backendProcess.on('close', (code) => {
       console.log(`[Backend] Exited with code ${code}`);
-      sendToRenderer('backend-log', `Backend process exited with code ${code}. Restarting...`);
+      sendToRenderer('backend-log', `Backend process exited with code ${code}.`);
       sendToRenderer('backend-status', 'stopped');
       backendProcess = null;
-      // Auto-restart after 2 seconds if it crashed
-      setTimeout(startBackend, 2000);
+      // Auto-restart after 3 seconds if not deliberately killed
+      setTimeout(startBackend, 3000);
     });
     
   } catch (err) {
@@ -871,6 +879,56 @@ function startBackend() {
     setTimeout(startBackend, 5000); // Retry later
   }
 }
+
+ipcMain.handle('install-vigem-driver', async () => {
+  try {
+    const isPackaged = app.isPackaged;
+    const bundledInstaller = isPackaged
+      ? path.join(process.resourcesPath, 'prereqs/ViGEmBusSetup.exe')
+      : path.join(__dirname, 'prereqs/ViGEmBusSetup.exe');
+
+    let targetInstaller = bundledInstaller;
+
+    if (!fs.existsSync(bundledInstaller)) {
+      const https = require('https');
+      const tempInstaller = path.join(app.getPath('temp'), 'ViGEmBusSetup.exe');
+      const file = fs.createWriteStream(tempInstaller);
+      
+      await new Promise((resolve, reject) => {
+        https.get('https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe', response => {
+          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            https.get(response.headers.location, redirectResp => {
+              redirectResp.pipe(file);
+              file.on('finish', () => { file.close(resolve); });
+            }).on('error', reject);
+          } else {
+            response.pipe(file);
+            file.on('finish', () => { file.close(resolve); });
+          }
+        }).on('error', reject);
+      });
+      targetInstaller = tempInstaller;
+    }
+
+    const { shell } = require('electron');
+    await shell.openPath(targetInstaller);
+    return { success: true };
+  } catch (err) {
+    console.error('[ViGEm Install Error]', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('restart-backend', async () => {
+  if (backendProcess) {
+    try { backendProcess.kill(); } catch(e) {}
+    backendProcess = null;
+  }
+  setTimeout(() => {
+    startBackend();
+  }, 1000);
+  return { success: true };
+});
 
 // Set up ADB reverse port forwarding for the USB connection
 // We run this periodically so that if a device is plugged in later, the tunnel is established.

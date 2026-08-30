@@ -632,6 +632,8 @@ ipcRenderer.on('backend-status', (event, status) => {
   if (status === 'ready') {
     statusText.style.color = 'var(--green)';
     statusText.textContent = 'Ready';
+    const modal = document.getElementById('vigemDriverModal');
+    if (modal) modal.style.display = 'none';
   } else if (status === 'watchdog') {
     statusText.style.color = 'var(--orange)';
     statusText.textContent = 'Standby';
@@ -640,6 +642,54 @@ ipcRenderer.on('backend-status', (event, status) => {
     statusText.textContent = 'Offline';
   }
 });
+
+// ViGEm Driver Missing UI
+ipcRenderer.on('backend-vigem-missing', () => {
+  const modal = document.getElementById('vigemDriverModal');
+  if (modal) modal.style.display = 'flex';
+});
+
+const installVigemBtn = document.getElementById('installVigemBtn');
+const dismissVigemBtn = document.getElementById('dismissVigemBtn');
+const vigemStatusMsg = document.getElementById('vigemStatusMsg');
+
+if (installVigemBtn) {
+  installVigemBtn.addEventListener('click', async () => {
+    installVigemBtn.disabled = true;
+    installVigemBtn.textContent = 'Launching Installer...';
+    if (vigemStatusMsg) {
+      vigemStatusMsg.style.display = 'block';
+      vigemStatusMsg.textContent = 'Please complete the ViGEmBus setup wizard on screen.';
+    }
+    
+    try {
+      const res = await ipcRenderer.invoke('install-vigem-driver');
+      if (res && res.success) {
+        installVigemBtn.textContent = 'Waiting for driver...';
+        // Check and restart backend periodically
+        const checkInterval = setInterval(async () => {
+          await ipcRenderer.invoke('restart-backend');
+        }, 4000);
+        setTimeout(() => clearInterval(checkInterval), 60000);
+      } else {
+        installVigemBtn.disabled = false;
+        installVigemBtn.textContent = 'Retry Install';
+        if (vigemStatusMsg) vigemStatusMsg.textContent = 'Failed to launch installer: ' + (res?.error || 'Unknown error');
+      }
+    } catch(err) {
+      installVigemBtn.disabled = false;
+      installVigemBtn.textContent = 'Retry Install';
+      if (vigemStatusMsg) vigemStatusMsg.textContent = err.message;
+    }
+  });
+}
+
+if (dismissVigemBtn) {
+  dismissVigemBtn.addEventListener('click', () => {
+    const modal = document.getElementById('vigemDriverModal');
+    if (modal) modal.style.display = 'none';
+  });
+}
 
 // ==========================================
 // PANDORA UI LOGIC
