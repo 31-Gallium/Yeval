@@ -5,7 +5,9 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -192,6 +194,58 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, 0, 0, (12 * density).toInt()) }
         }
+
+        // Optimize nested touch handling & reduce touch slop for smooth, effortless swiping
+        val carouselRecyclerView = viewPager.getChildAt(0) as? RecyclerView
+        if (carouselRecyclerView != null) {
+            try {
+                val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
+                touchSlopField.isAccessible = true
+                val currentSlop = touchSlopField.getInt(carouselRecyclerView)
+                touchSlopField.setInt(carouselRecyclerView, (currentSlop * 0.45f).toInt().coerceAtLeast(8))
+            } catch (e: Exception) {}
+
+            var startX = 0f
+            var startY = 0f
+
+            carouselRecyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+                override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            startX = e.rawX
+                            startY = e.rawY
+                            rv.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = Math.abs(e.rawX - startX)
+                            val dy = Math.abs(e.rawY - startY)
+                            val slop = ViewConfiguration.get(context).scaledTouchSlop * 0.4f
+
+                            if (dx > slop || dy > slop) {
+                                if (dx > dy) {
+                                    // Horizontal swipe on device cards -> keep gesture within device carousel
+                                    val count = this@HomeView.adapter.itemCount
+                                    val canScroll = if (e.rawX < startX) {
+                                        viewPager.currentItem < count - 1
+                                    } else {
+                                        viewPager.currentItem > 0
+                                    }
+                                    rv.parent?.requestDisallowInterceptTouchEvent(canScroll)
+                                } else {
+                                    // Vertical scroll -> allow parent vertical ScrollView to scroll
+                                    rv.parent?.requestDisallowInterceptTouchEvent(false)
+                                }
+                            }
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            rv.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                    }
+                    return false
+                }
+            })
+        }
+
         mainLayout.addView(viewPager)
 
         dotsIndicatorLayout = LinearLayout(context).apply {
@@ -568,7 +622,7 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
         inner class EmptyViewHolder(val view: LinearLayout) : RecyclerView.ViewHolder(view)
         
         inner class DeviceViewHolder(
-            val view: LinearLayout,
+            val card: FrostDeviceCardView,
             val laptopView: BatteryLaptopView,
             val nameText: TextView,
             val ipText: TextView,
@@ -576,7 +630,7 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             val slotsLabel: TextView,
             val profileBtn: LinearLayout,
             val profileBtnText: TextView
-        ) : RecyclerView.ViewHolder(view)
+        ) : RecyclerView.ViewHolder(card)
 
         override fun getItemViewType(position: Int): Int {
             return if (devices.isEmpty()) VIEW_TYPE_EMPTY else VIEW_TYPE_DEVICE
@@ -675,20 +729,12 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
                 return EmptyViewHolder(card)
             }
 
-            val card = LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
+            val card = FrostDeviceCardView(context).apply {
                 gravity = Gravity.CENTER
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                val shape = GradientDrawable().apply {
-                    cornerRadius = 48f
-                    setColor(Color.parseColor("#12141c")) // Frosted Nordic Slate
-                    setStroke(2, Color.parseColor("#242836"))
-                }
-                background = shape
-                setPadding(56, 64, 56, 56)
             }
 
             // Top Row for Title, Laptop Icon, and Subtitle
@@ -900,9 +946,13 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
                 holder.ipText.text = subtitle
                 
                 val isConnected = connectedIp == device.ip
+                holder.laptopView.isOnline = isOnline
                 holder.laptopView.isConnected = isConnected
                 holder.laptopView.batteryLevel = device.battery / 100f
                 holder.slotsLabel.text = "Active Players: ${device.slotsText}"
+                
+                holder.card.isOnline = isOnline
+                holder.card.isConnected = isConnected
                 
                 // Update Preferred Profile text & PC-like popup trigger
                 val currentPrefIndex = getPreferredProfileForDevice(device)
@@ -955,29 +1005,21 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
                 val isFull = device.slotsText.startsWith("4") || device.slotsText == "4/4"
                 
                 if (isOnline) {
-                    holder.view.alpha = 1.0f
-                    val shape = holder.view.background as GradientDrawable
-                    shape.setColor(Color.parseColor("#141824"))
-                    
+                    holder.card.alpha = 1.0f
                     if (isFull) {
-                        shape.setStroke(4, Color.parseColor("#ef4444"))
-                        holder.view.setOnClickListener(null)
+                        holder.card.setOnClickListener(null)
                     } else {
-                        shape.setStroke(2, if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#2a354c"))
                         val launchAction = {
-                            holder.view.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).withEndAction {
-                                holder.view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                            holder.card.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).withEndAction {
+                                holder.card.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
                                 onLaunchGamepad(device.ip, getPreferredProfileForDevice(device))
                             }.start()
                         }
-                        holder.view.setOnClickListener { launchAction() }
+                        holder.card.setOnClickListener { launchAction() }
                     }
                 } else {
-                    holder.view.alpha = 0.55f
-                    val shape = holder.view.background as GradientDrawable
-                    shape.setColor(Color.parseColor("#0b0d13"))
-                    shape.setStroke(2, Color.parseColor("#181d28"))
-                    holder.view.setOnClickListener(null)
+                    holder.card.alpha = 0.55f
+                    holder.card.setOnClickListener(null)
                 }
             }
         }

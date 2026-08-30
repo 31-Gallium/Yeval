@@ -56,6 +56,11 @@ class BatteryLaptopView(context: Context) : View(context) {
             if (value) startPulse() else stopPulse()
             invalidate()
         }
+    var isOnline = false
+        set(value) {
+            field = value
+            invalidate()
+        }
     
     private var pulseAlpha = 255
     private var pulseAnimator: ValueAnimator? = null
@@ -89,8 +94,10 @@ class BatteryLaptopView(context: Context) : View(context) {
     private fun updateShader() {
         val colors = if (isConnected) {
             intArrayOf(Color.parseColor("#38bdf8"), Color.parseColor("#ffffff"))
-        } else {
+        } else if (isOnline) {
             intArrayOf(Color.parseColor("#64748b"), Color.parseColor("#cbd5e1"))
+        } else {
+            intArrayOf(Color.parseColor("#0d1017"), Color.parseColor("#151922"))
         }
         
         val shader = LinearGradient(
@@ -103,7 +110,6 @@ class BatteryLaptopView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        // Update shader if state changed
         updateShader()
 
         val cx = width / 2f
@@ -113,42 +119,48 @@ class BatteryLaptopView(context: Context) : View(context) {
         val startAngle = 135f
         val maxSweep = 270f
         
-        // Draw background dark groove
+        // Draw background arc groove (darker when offline)
+        bgArcPaint.color = if (isOnline) Color.parseColor("#151822") else Color.parseColor("#080a0e")
         canvas.drawArc(
             cx - radius, cy - radius, cx + radius, cy + radius,
             startAngle, maxSweep, false, bgArcPaint
         )
 
-        // Draw battery highlighted covered arc
-        val sweepAngle = maxSweep * batteryLevel
-        if (isConnected) {
-            arcPaint.alpha = pulseAlpha
-            dotPaint.alpha = pulseAlpha
-            laptopPaint.color = Color.parseColor("#f0f9ff")
-        } else {
-            arcPaint.alpha = 255
-            dotPaint.alpha = 255
-            laptopPaint.color = Color.parseColor("#333a4c")
-        }
-        
-        canvas.drawArc(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            startAngle, sweepAngle, false, arcPaint
-        )
-
-        // Draw glowing dot at the end of the covered arc
-        if (sweepAngle > 0) {
-            val endAngle = Math.toRadians((startAngle + sweepAngle).toDouble())
-            val dotX = cx + radius * Math.cos(endAngle).toFloat()
-            val dotY = cy + radius * Math.sin(endAngle).toFloat()
-            
-            val glowPaint = Paint(dotPaint).apply { 
-                color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#94a3b8")
-                alpha = if (isConnected) pulseAlpha / 2 else 90 
-                maskFilter = android.graphics.BlurMaskFilter(14f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        // Draw battery highlighted covered arc and glowing dot ONLY when online
+        if (isOnline) {
+            val sweepAngle = maxSweep * batteryLevel
+            if (isConnected) {
+                arcPaint.alpha = pulseAlpha
+                dotPaint.alpha = pulseAlpha
+                laptopPaint.color = Color.parseColor("#f0f9ff")
+            } else {
+                arcPaint.alpha = 255
+                dotPaint.alpha = 255
+                laptopPaint.color = Color.parseColor("#94a3b8")
             }
-            canvas.drawCircle(dotX, dotY, 12f, glowPaint)
-            canvas.drawCircle(dotX, dotY, 7f, dotPaint)
+            
+            canvas.drawArc(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                startAngle, sweepAngle, false, arcPaint
+            )
+
+            // Draw glowing dot at the end of the covered arc
+            if (sweepAngle > 0) {
+                val endAngle = Math.toRadians((startAngle + sweepAngle).toDouble())
+                val dotX = cx + radius * Math.cos(endAngle).toFloat()
+                val dotY = cy + radius * Math.sin(endAngle).toFloat()
+                
+                val glowPaint = Paint(dotPaint).apply { 
+                    color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#94a3b8")
+                    alpha = if (isConnected) pulseAlpha / 2 else 90 
+                    maskFilter = android.graphics.BlurMaskFilter(14f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawCircle(dotX, dotY, 12f, glowPaint)
+                canvas.drawCircle(dotX, dotY, 7f, dotPaint)
+            }
+        } else {
+            // Completely offline: mute laptop frame
+            laptopPaint.color = Color.parseColor("#1c2230")
         }
 
         // Draw Laptop Icon
@@ -192,18 +204,20 @@ class BatteryLaptopView(context: Context) : View(context) {
             screenRect.right - 5f,
             screenRect.bottom - 5f
         )
-        innerScreenPaint.color = Color.parseColor("#0c1017")
+        innerScreenPaint.color = if (isOnline) Color.parseColor("#0c1017") else Color.parseColor("#080a0e")
         canvas.drawRoundRect(innerScreenRect, 5f, 5f, innerScreenPaint)
 
-        // Battery Percentage Number inside the Screen
-        val pct = (batteryLevel * 100).toInt().coerceIn(0, 100)
-        val pctText = "${pct}%"
-        
-        textPaint.textSize = innerScreenRect.height() * 0.48f
-        textPaint.color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#8c96a5")
-        
-        val fontMetrics = textPaint.fontMetrics
-        val textY = innerScreenRect.centerY() - (fontMetrics.ascent + fontMetrics.descent) / 2f
-        canvas.drawText(pctText, innerScreenRect.centerX(), textY, textPaint)
+        // Battery Percentage Number inside the Screen (shown ONLY when device is online)
+        if (isOnline) {
+            val pct = (batteryLevel * 100).toInt().coerceIn(0, 100)
+            val pctText = "${pct}%"
+            
+            textPaint.textSize = innerScreenRect.height() * 0.48f
+            textPaint.color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#cbd5e1")
+            
+            val fontMetrics = textPaint.fontMetrics
+            val textY = innerScreenRect.centerY() - (fontMetrics.ascent + fontMetrics.descent) / 2f
+            canvas.drawText(pctText, innerScreenRect.centerX(), textY, textPaint)
+        }
     }
 }
