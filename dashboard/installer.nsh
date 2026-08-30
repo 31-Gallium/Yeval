@@ -10,3 +10,11 @@
     DetailPrint "ViGEmBus Kernel Driver is already installed."
   ${EndIf}
 !macroend
+
+!macro customUnInstall
+  DetailPrint "Cleaning up Yeval Dashboard temporary caches..."
+  RMDir /r "$APPDATA\yeval-dashboard\Cache"
+  RMDir /r "$APPDATA\yeval-dashboard\Code Cache"
+  RMDir /r "$APPDATA\yeval-dashboard\DawnCache"
+  RMDir /r "$APPDATA\yeval-dashboard\GPUCache"
+!macroend

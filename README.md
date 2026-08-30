@@ -1,8 +1,8 @@
-# Yeval: Mobile to PC Xbox Controller System
+# Yeval: Virtual Xbox Controller for PC
 
-Yeval is an advanced, ultra-low latency, cross-platform system that turns your Android smartphone into a fully-functional virtual Xbox 360 controller for your Windows PC over Wi-Fi, USB Tethering, or USB Debugging (ADB).
+Yeval turns your Android phone into a virtual Xbox 360 controller for your Windows PC over Wi-Fi, USB Tethering, or USB Debugging (ADB).
 
-Designed with multiplayer and couch co-op in mind, Yeval natively supports up to 4 simultaneous players and acts exactly like a traditional gaming console. It seamlessly manages connections, intelligently detects pre-existing physical controllers to prevent interference, and provides a sleek Glassmorphism desktop dashboard to configure custom layouts, touch zones, and player slot mappings in real time.
+Designed for singleplayer and couch co-op, Yeval natively supports up to 4 simultaneous players with intelligent slot detection, dynamic failover, and a modern desktop dashboard to configure custom layouts, touch zones, and player slot mappings in real time.
 
 ---
 
