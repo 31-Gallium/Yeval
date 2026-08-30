@@ -594,14 +594,28 @@ ipcMain.on('window-min', () => {
   }
 });
 
-let isForceClosing = false;
+function cleanupAndQuit() {
+  try {
+    if (backendProcess) {
+      backendProcess.kill();
+      backendProcess = null;
+    }
+  } catch (e) {}
+  try {
+    exec('taskkill /F /IM YevalMobileBackend.exe /IM MobileControllerBackend.exe', () => {});
+  } catch (e) {}
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy();
+  }
+  app.quit();
+}
+
 ipcMain.on('window-close', () => {
-  sendToRenderer('request-close-check');
+  cleanupAndQuit();
 });
 
 ipcMain.on('force-close', () => {
-  isForceClosing = true;
-  app.quit();
+  cleanupAndQuit();
 });
 
 function createWindow() {

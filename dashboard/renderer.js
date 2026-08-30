@@ -651,15 +651,17 @@ ipcRenderer.on('backend-vigem-missing', () => {
 
 const installVigemBtn = document.getElementById('installVigemBtn');
 const dismissVigemBtn = document.getElementById('dismissVigemBtn');
+const exitVigemAppBtn = document.getElementById('exitVigemAppBtn');
+const closeVigemModalBtn = document.getElementById('closeVigemModalBtn');
 const vigemStatusMsg = document.getElementById('vigemStatusMsg');
 
 if (installVigemBtn) {
   installVigemBtn.addEventListener('click', async () => {
     installVigemBtn.disabled = true;
-    installVigemBtn.textContent = 'Launching Installer...';
+    installVigemBtn.textContent = 'Launching Installer / Repair...';
     if (vigemStatusMsg) {
       vigemStatusMsg.style.display = 'block';
-      vigemStatusMsg.textContent = 'Please complete the ViGEmBus setup wizard on screen.';
+      vigemStatusMsg.textContent = 'Please complete the ViGEmBus setup/repair wizard on screen.';
     }
     
     try {
@@ -669,18 +671,30 @@ if (installVigemBtn) {
         // Check and restart backend periodically
         const checkInterval = setInterval(async () => {
           await ipcRenderer.invoke('restart-backend');
-        }, 4000);
+        }, 3000);
         setTimeout(() => clearInterval(checkInterval), 60000);
       } else {
         installVigemBtn.disabled = false;
-        installVigemBtn.textContent = 'Retry Install';
+        installVigemBtn.textContent = 'Retry Install / Repair';
         if (vigemStatusMsg) vigemStatusMsg.textContent = 'Failed to launch installer: ' + (res?.error || 'Unknown error');
       }
     } catch(err) {
       installVigemBtn.disabled = false;
-      installVigemBtn.textContent = 'Retry Install';
+      installVigemBtn.textContent = 'Retry Install / Repair';
       if (vigemStatusMsg) vigemStatusMsg.textContent = err.message;
     }
+  });
+}
+
+if (exitVigemAppBtn) {
+  exitVigemAppBtn.addEventListener('click', () => {
+    ipcRenderer.send('window-close');
+  });
+}
+
+if (closeVigemModalBtn) {
+  closeVigemModalBtn.addEventListener('click', () => {
+    ipcRenderer.send('window-close');
   });
 }
 
