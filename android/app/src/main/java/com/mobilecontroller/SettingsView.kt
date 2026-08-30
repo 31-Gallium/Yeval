@@ -228,6 +228,57 @@ class SettingsView(context: Context) : FrameLayout(context) {
         }
         mainLayout.addView(routeCard)
 
+        // --- Section: SYSTEM & UPDATES ---
+        mainLayout.addView(createSectionTitle(context, "SYSTEM & UPDATES"))
+
+        val curVer = UpdateManager.getAppVersionName(context)
+        val updateCheckBtn = createDropdownAnchorButton(context, "Check for Updates", "#38bdf8")
+        var updateCard: LinearLayout? = null
+
+        updateCheckBtn.setOnClickListener {
+            val labelTv = updateCheckBtn.getChildAt(0) as? TextView
+            labelTv?.text = "Checking..."
+            updateCheckBtn.isEnabled = false
+
+            UpdateManager.checkForUpdate(context) { updateInfo ->
+                updateCheckBtn.isEnabled = true
+                labelTv?.text = "Check for Updates"
+                val descTv = updateCard?.findViewById<TextView>(3001)
+
+                if (updateInfo != null && updateInfo.hasUpdate) {
+                    descTv?.text = "New version ${updateInfo.latestVersion} is available!"
+                    descTv?.setTextColor(Color.parseColor("#38bdf8"))
+                    labelTv?.text = "Download ${updateInfo.latestVersion}"
+                    updateCheckBtn.setOnClickListener {
+                        labelTv?.text = "Downloading..."
+                        updateCheckBtn.isEnabled = false
+                        UpdateManager.downloadAndInstall(context, updateInfo.apkDownloadUrl, { progress ->
+                            labelTv?.text = "Downloading: $progress%"
+                        }, { errMsg ->
+                            updateCheckBtn.isEnabled = true
+                            labelTv?.text = "Retry Update"
+                            descTv?.text = errMsg
+                            descTv?.setTextColor(Color.parseColor("#ef4444"))
+                        })
+                    }
+                } else if (updateInfo != null) {
+                    descTv?.text = "Yeval is up to date (v$curVer)"
+                    descTv?.setTextColor(Color.parseColor("#4ade80"))
+                } else {
+                    descTv?.text = "Unable to reach update server (Offline)"
+                    descTv?.setTextColor(Color.parseColor("#94a3b8"))
+                }
+            }
+        }
+
+        updateCard = createSettingsCard(context, "App Updates", "Current Version: v$curVer", updateCheckBtn, null).apply {
+            val descTv = getChildAt(0) as? LinearLayout
+            val textLayout = descTv?.getChildAt(0) as? LinearLayout
+            val descView = textLayout?.getChildAt(1) as? TextView
+            descView?.id = 3001
+        }
+        mainLayout.addView(updateCard)
+
         scrollView.addView(mainLayout)
         addView(scrollView)
     }

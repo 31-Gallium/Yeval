@@ -1038,6 +1038,96 @@ window.addEventListener('blur', () => {
     });
 });
 
+// ==========================================
+// AUTO-UPDATE SYSTEM UI
+// ==========================================
+const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+const appUpdateStatusText = document.getElementById('appUpdateStatusText');
+const updateToast = document.getElementById('updateToast');
+const updateToastTitle = document.getElementById('updateToastTitle');
+const updateToastDesc = document.getElementById('updateToastDesc');
+const updateProgressBarContainer = document.getElementById('updateProgressBarContainer');
+const updateProgressBar = document.getElementById('updateProgressBar');
+const updateToastInstallBtn = document.getElementById('updateToastInstallBtn');
+const updateToastDismissBtn = document.getElementById('updateToastDismissBtn');
+
+if (checkUpdatesBtn) {
+    checkUpdatesBtn.addEventListener('click', async () => {
+        checkUpdatesBtn.disabled = true;
+        checkUpdatesBtn.textContent = 'Checking...';
+        if (appUpdateStatusText) appUpdateStatusText.textContent = 'Contacting GitHub releases...';
+        
+        try {
+            const res = await ipcRenderer.invoke('check-for-updates');
+            if (res && res.success) {
+                if (appUpdateStatusText) appUpdateStatusText.textContent = `Latest available version: v${res.version || '1.0.0'}`;
+            } else {
+                if (appUpdateStatusText) appUpdateStatusText.textContent = res?.error || 'No updates available.';
+            }
+        } catch (e) {
+            if (appUpdateStatusText) appUpdateStatusText.textContent = 'Error checking for updates.';
+        } finally {
+            setTimeout(() => {
+                checkUpdatesBtn.disabled = false;
+                checkUpdatesBtn.textContent = 'Check for Updates';
+            }, 3000);
+        }
+    });
+}
+
+if (updateToastDismissBtn) {
+    updateToastDismissBtn.addEventListener('click', () => {
+        if (updateToast) updateToast.style.display = 'none';
+    });
+}
+
+if (updateToastInstallBtn) {
+    updateToastInstallBtn.addEventListener('click', async () => {
+        updateToastInstallBtn.disabled = true;
+        updateToastInstallBtn.textContent = 'Restarting...';
+        await ipcRenderer.invoke('quit-and-install-update');
+    });
+}
+
+ipcRenderer.on('update-status', (event, data) => {
+    if (!data) return;
+    
+    if (data.status === 'checking') {
+        if (appUpdateStatusText) appUpdateStatusText.textContent = 'Checking for updates...';
+    } else if (data.status === 'available') {
+        if (appUpdateStatusText) appUpdateStatusText.textContent = `Update v${data.version} available. Downloading in background...`;
+        if (updateToast) {
+            updateToast.style.display = 'block';
+            updateToastTitle.textContent = `Update Available (v${data.version})`;
+            updateToastDesc.textContent = 'Downloading update package in the background...';
+            updateProgressBarContainer.style.display = 'block';
+            updateProgressBar.style.width = '0%';
+            updateToastInstallBtn.style.display = 'none';
+        }
+    } else if (data.status === 'not-available') {
+        if (appUpdateStatusText) appUpdateStatusText.textContent = `Current Version: v${data.version || '1.0.0'} (Up to date)`;
+    } else if (data.status === 'downloading') {
+        if (updateToast) {
+            updateToast.style.display = 'block';
+            updateProgressBarContainer.style.display = 'block';
+            updateProgressBar.style.width = `${data.percent || 0}%`;
+            updateToastDesc.textContent = `Downloading update: ${data.percent || 0}%`;
+        }
+    } else if (data.status === 'downloaded') {
+        if (appUpdateStatusText) appUpdateStatusText.textContent = `Update v${data.version} ready to install.`;
+        if (updateToast) {
+            updateToast.style.display = 'block';
+            updateToastTitle.textContent = `Update Ready (v${data.version})`;
+            updateToastDesc.textContent = 'Update has been downloaded. Restart to apply.';
+            updateProgressBarContainer.style.display = 'none';
+            updateToastInstallBtn.style.display = 'inline-block';
+        }
+    } else if (data.status === 'error') {
+        if (appUpdateStatusText) appUpdateStatusText.textContent = 'Could not reach update server (Offline).';
+    }
+});
+
+
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initCustomTooltips);

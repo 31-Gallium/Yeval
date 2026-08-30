@@ -87,12 +87,81 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             textSize = 14f
             setTextColor(Color.parseColor("#8c96a5"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 32)
+            setPadding(0, 0, 0, 16)
         }
         mainLayout.addView(statusText)
 
-        adapter = DeviceAdapter()
         val density = context.resources.displayMetrics.density
+
+        // --- In-App Update Notification Banner ---
+        val updateBannerLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            val shape = GradientDrawable().apply {
+                cornerRadius = 16f * density
+                setColor(Color.parseColor("#151d30"))
+                setStroke(1, Color.parseColor("#38bdf8"))
+            }
+            background = shape
+            setPadding((16 * density).toInt(), (10 * density).toInt(), (16 * density).toInt(), (10 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, (16 * density).toInt()) }
+        }
+        mainLayout.addView(updateBannerLayout)
+
+        UpdateManager.checkForUpdate(context) { updateInfo ->
+            if (updateInfo != null && updateInfo.hasUpdate) {
+                updateBannerLayout.removeAllViews()
+                val textLayout = LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                val bannerTitle = TextView(context).apply {
+                    text = "Update ${updateInfo.latestVersion} Available"
+                    textSize = 13f
+                    setTextColor(Color.WHITE)
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                }
+                val bannerDesc = TextView(context).apply {
+                    text = "Tap to update Yeval client"
+                    textSize = 11f
+                    setTextColor(Color.parseColor("#94a3b8"))
+                }
+                textLayout.addView(bannerTitle)
+                textLayout.addView(bannerDesc)
+                updateBannerLayout.addView(textLayout)
+
+                val updateBtn = TextView(context).apply {
+                    text = "Update"
+                    textSize = 12f
+                    setTextColor(Color.parseColor("#0f172a"))
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    val btnBg = GradientDrawable().apply {
+                        cornerRadius = 12f * density
+                        setColor(Color.parseColor("#38bdf8"))
+                    }
+                    background = btnBg
+                    setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
+                    setOnClickListener {
+                        text = "..."
+                        isEnabled = false
+                        UpdateManager.downloadAndInstall(context, updateInfo.apkDownloadUrl, { progress ->
+                            text = "$progress%"
+                        }, {
+                            isEnabled = true
+                            text = "Retry"
+                        })
+                    }
+                }
+                updateBannerLayout.addView(updateBtn)
+                updateBannerLayout.visibility = View.VISIBLE
+            }
+        }
+
+        adapter = DeviceAdapter()
         val pagePeek = (24 * density).toInt()
 
         viewPager = ViewPager2(context).apply {

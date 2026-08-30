@@ -1097,3 +1097,90 @@ app.on('before-quit', () => {
   }
 });
 
+// ==========================================
+// ELECTRON AUTO-UPDATER (GITHUB RELEASES)
+// ==========================================
+const { autoUpdater } = require('electron-updater');
+
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+autoUpdater.on('checking-for-update', () => {
+  sendToRenderer('update-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log(`[AutoUpdater] Update available: v${info.version}`);
+  sendToRenderer('update-status', { 
+    status: 'available', 
+    version: info.version, 
+    releaseNotes: info.releaseNotes 
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  sendToRenderer('update-status', { 
+    status: 'not-available', 
+    version: info?.version 
+  });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  sendToRenderer('update-status', { 
+    status: 'downloading', 
+    percent: Math.round(progressObj.percent || 0),
+    transferred: progressObj.transferred,
+    total: progressObj.total 
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log(`[AutoUpdater] Update downloaded: v${info.version}`);
+  sendToRenderer('update-status', { 
+    status: 'downloaded', 
+    version: info.version 
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  console.warn('[AutoUpdater] Error:', err?.message || err);
+  sendToRenderer('update-status', { 
+    status: 'error', 
+    error: err?.message || 'Update check failed' 
+  });
+});
+
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, version: result?.updateInfo?.version };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('quit-and-install-update', () => {
+  broadcastShutdown();
+  if (backendProcess) {
+    try { backendProcess.kill(); } catch (e) {}
+    backendProcess = null;
+  }
+  autoUpdater.quitAndInstall(false, true);
+  return { success: true };
+});
+
+// Periodic background check every 4 hours
+setInterval(() => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }
+}, 4 * 60 * 60 * 1000);
+
+// Initial check 5 seconds after startup
+setTimeout(() => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }
+}, 5000);
+
+
