@@ -5,7 +5,6 @@ import android.content.Context
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PathMeasure
@@ -60,7 +59,8 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     // Outer soft frosted ambient halo glow
     private val haloGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 8f
+        strokeWidth = 9f
+        strokeCap = Paint.Cap.ROUND
         maskFilter = BlurMaskFilter(14f, BlurMaskFilter.Blur.NORMAL)
     }
 
@@ -68,10 +68,13 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     private val coreStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 3.5f
+        strokeCap = Paint.Cap.ROUND
     }
 
     private val cardRect = RectF()
     private val borderPath = Path()
+    private val glowSegmentPath = Path()
+    private val coreSegmentPath = Path()
     private val pathMeasure = PathMeasure()
     private var pathLength = 0f
 
@@ -123,6 +126,25 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         pathLength = pathMeasure.length
     }
 
+    /**
+     * Extracts a path segment across distance boundaries, seamlessly wrapping around 0..pathLength.
+     */
+    private fun extractContourSegment(startDist: Float, length: Float, dst: Path) {
+        dst.reset()
+        if (pathLength <= 0f) return
+
+        val s = (startDist % pathLength + pathLength) % pathLength
+        val e = s + length
+
+        if (e <= pathLength) {
+            pathMeasure.getSegment(s, e, dst, true)
+        } else {
+            // First chunk to end of contour, second chunk from start of contour
+            pathMeasure.getSegment(s, pathLength, dst, true)
+            pathMeasure.getSegment(0f, e - pathLength, dst, true)
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         if (isOnline) {
             // 1. Dark frosted slate background fill
@@ -135,21 +157,21 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
             if (pathLength > 0f) {
                 val glowLength = pathLength * 0.32f
-                val phase = -glowProgress * pathLength
+                val startDist = glowProgress * pathLength
 
-                // 3. Outer Frosted Ambient Halo Glow
-                haloGlowPaint.pathEffect = DashPathEffect(floatArrayOf(glowLength, pathLength - glowLength), phase)
+                // 3. Outer Frosted Ambient Halo Glow (with seamless 360-degree wrapping)
+                extractContourSegment(startDist, glowLength, glowSegmentPath)
                 haloGlowPaint.color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#7dd3fc")
                 haloGlowPaint.alpha = if (isConnected) 140 else 85
-                canvas.drawPath(borderPath, haloGlowPaint)
+                canvas.drawPath(glowSegmentPath, haloGlowPaint)
 
-                // 4. Sharp High-Contrast Frosted White Light Core
+                // 4. Sharp High-Contrast Frosted White Light Core (centered inside the glow beam)
                 val coreLength = glowLength * 0.65f
-                val corePhase = phase - (glowLength - coreLength) / 2f
-                coreStrokePaint.pathEffect = DashPathEffect(floatArrayOf(coreLength, pathLength - coreLength), corePhase)
+                val coreStartDist = startDist + (glowLength - coreLength) / 2f
+                extractContourSegment(coreStartDist, coreLength, coreSegmentPath)
                 coreStrokePaint.color = if (isConnected) Color.parseColor("#ffffff") else Color.parseColor("#f8fafc")
                 coreStrokePaint.alpha = 255
-                canvas.drawPath(borderPath, coreStrokePaint)
+                canvas.drawPath(coreSegmentPath, coreStrokePaint)
             }
         } else {
             // Offline Card: Dark Obsidian muted stealth styling
