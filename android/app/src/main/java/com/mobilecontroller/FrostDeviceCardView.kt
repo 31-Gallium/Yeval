@@ -86,6 +86,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
             duration = 4500L // Smooth 4.5s clockwise 360° orbit
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
+            currentPlayTime = ((glowAngle / 360f) * 4500L).toLong()
             addUpdateListener { anim ->
                 glowAngle = anim.animatedValue as Float
                 invalidate()
@@ -97,7 +98,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     private fun stopGlowAnimation() {
         glowAnimator?.cancel()
         glowAnimator = null
-        glowAngle = 0f
+        // Preserve glowAngle instead of resetting to 0f, so it resumes seamlessly if reattached
         invalidate()
     }
 
