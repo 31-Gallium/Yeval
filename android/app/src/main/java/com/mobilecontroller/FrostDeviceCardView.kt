@@ -29,8 +29,11 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
     var isConnected: Boolean = false
         set(value) {
-            field = value
-            invalidate()
+            if (field != value) {
+                field = value
+                updateShader()
+                invalidate()
+            }
         }
 
     private var glowAngle: Float = 0f
@@ -45,7 +48,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = 3.5f
     }
 
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -56,11 +59,12 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
     private val staticBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 2.5f
+        strokeWidth = 2f
         color = Color.parseColor("#181d28")
     }
 
     private val cardRect = RectF()
+    private var sweepGradient: SweepGradient? = null
 
     init {
         setWillNotDraw(false)
@@ -68,10 +72,50 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         setPadding(56, 64, 56, 56)
     }
 
+    private fun updateShader() {
+        if (width <= 0 || height <= 0) return
+        val cx = width / 2f
+        val cy = height / 2f
+
+        // Smooth, symmetrical, closed-loop gradient:
+        // 0° and 360° have the identical dark slate base color (#18202f).
+        // The frosted cyan/white light beam sweeps smoothly across 120°-240°.
+        // This guarantees zero cutoff seams, zero jumps, and 100% continuous fluid rotation.
+        val glowColors = if (isConnected) {
+            intArrayOf(
+                Color.parseColor("#141b27"), // 0 deg
+                Color.parseColor("#141b27"), // 90 deg
+                Color.parseColor("#38bdf8"), // 150 deg (glow start)
+                Color.parseColor("#ffffff"), // 180 deg (frosted highlight peak)
+                Color.parseColor("#38bdf8"), // 210 deg (glow end)
+                Color.parseColor("#141b27"), // 270 deg
+                Color.parseColor("#141b27")  // 360 deg (identical to 0 deg!)
+            )
+        } else {
+            intArrayOf(
+                Color.parseColor("#18202d"), // 0 deg
+                Color.parseColor("#18202d"), // 90 deg
+                Color.parseColor("#64748b"), // 150 deg (glow start)
+                Color.parseColor("#f8fafc"), // 180 deg (frosted highlight peak)
+                Color.parseColor("#94a3b8"), // 210 deg (glow end)
+                Color.parseColor("#18202d"), // 270 deg
+                Color.parseColor("#18202d")  // 360 deg (identical to 0 deg!)
+            )
+        }
+
+        val glowPositions = floatArrayOf(
+            0.0f, 0.25f, 0.42f, 0.50f, 0.58f, 0.75f, 1.0f
+        )
+
+        sweepGradient = SweepGradient(cx, cy, glowColors, glowPositions)
+        strokePaint.shader = sweepGradient
+        glowPaint.shader = sweepGradient
+    }
+
     private fun startGlowAnimation() {
         if (glowAnimator != null) return
         glowAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
-            duration = 6000L // Slow, elegant clockwise rotation
+            duration = 5000L // Smooth 5-second clockwise orbit
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { anim ->
@@ -85,6 +129,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     private fun stopGlowAnimation() {
         glowAnimator?.cancel()
         glowAnimator = null
+        glowAngle = 0f
         invalidate()
     }
 
@@ -102,6 +147,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         super.onSizeChanged(w, h, oldw, oldh)
         val strokeInset = 4f
         cardRect.set(strokeInset, strokeInset, w.toFloat() - strokeInset, h.toFloat() - strokeInset)
+        updateShader()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -109,45 +155,22 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         val cy = height / 2f
 
         if (isOnline) {
-            // Online Background
+            // Online Background Fill
             bgPaint.color = Color.parseColor("#131622")
             canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, bgPaint)
 
-            // Dynamic Clockwise Rotating Frost Glow
-            val colors = if (isConnected) {
-                intArrayOf(
-                    Color.parseColor("#ffffff"),
-                    Color.parseColor("#38bdf8"),
-                    Color.parseColor("#0ea5e9"),
-                    Color.parseColor("#1e293b"),
-                    Color.parseColor("#38bdf8"),
-                    Color.parseColor("#ffffff")
-                )
-            } else {
-                intArrayOf(
-                    Color.parseColor("#ffffff"),
-                    Color.parseColor("#94a3b8"),
-                    Color.parseColor("#1e293b"),
-                    Color.parseColor("#475569"),
-                    Color.parseColor("#e2e8f0"),
-                    Color.parseColor("#ffffff")
-                )
+            if (sweepGradient != null) {
+                shaderMatrix.setRotate(glowAngle, cx, cy)
+                sweepGradient?.setLocalMatrix(shaderMatrix)
+
+                // 1. Soft Frosted Outer Glow
+                glowPaint.alpha = if (isConnected) 140 else 90
+                canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, glowPaint)
+
+                // 2. Crisp Seamless Rotating Border Stroke
+                strokePaint.alpha = 255
+                canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, strokePaint)
             }
-
-            val positions = floatArrayOf(0f, 0.2f, 0.45f, 0.7f, 0.9f, 1.0f)
-            val sweep = SweepGradient(cx, cy, colors, positions)
-            shaderMatrix.setRotate(glowAngle, cx, cy)
-            sweep.setLocalMatrix(shaderMatrix)
-
-            // 1. Soft Frosted Outer Glow
-            glowPaint.shader = sweep
-            glowPaint.alpha = if (isConnected) 120 else 75
-            canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, glowPaint)
-
-            // 2. Sharp Clockwise Rotating Border Stroke
-            strokePaint.shader = sweep
-            strokePaint.alpha = 240
-            canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, strokePaint)
         } else {
             // Offline Card: Dark Obsidian muted styling
             bgPaint.color = Color.parseColor("#090b10")

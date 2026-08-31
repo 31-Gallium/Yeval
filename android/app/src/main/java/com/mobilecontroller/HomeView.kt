@@ -164,24 +164,12 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
         }
 
         adapter = DeviceAdapter()
-        val pagePeek = (24 * density).toInt()
 
         viewPager = ViewPager2(context).apply {
             this.adapter = this@HomeView.adapter
-            clipToPadding = false
-            clipChildren = false
-            offscreenPageLimit = 3
-            setPadding(pagePeek, 0, pagePeek, 0)
-
-            setPageTransformer { page, position ->
-                val absPos = Math.abs(position)
-                val scale = 0.90f + (1f - 0.90f) * (1f - absPos.coerceIn(0f, 1f))
-                page.scaleY = scale
-                page.scaleX = scale
-                page.alpha = 0.45f + (1f - 0.45f) * (1f - absPos.coerceIn(0f, 1f))
-                page.elevation = (1f - absPos.coerceIn(0f, 1f)) * 24f
-                page.translationY = absPos.coerceIn(0f, 1f) * 16f
-            }
+            clipToPadding = true
+            clipChildren = true
+            offscreenPageLimit = 1
 
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
@@ -189,64 +177,32 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
                 }
             })
 
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, (12 * density).toInt()) }
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
 
-        // Optimize nested touch handling & reduce touch slop for smooth, effortless swiping
+        // Optimize internal RecyclerView touch slop for instant, effortless swipe detection
         val carouselRecyclerView = viewPager.getChildAt(0) as? RecyclerView
         if (carouselRecyclerView != null) {
             try {
                 val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
                 touchSlopField.isAccessible = true
                 val currentSlop = touchSlopField.getInt(carouselRecyclerView)
-                touchSlopField.setInt(carouselRecyclerView, (currentSlop * 0.45f).toInt().coerceAtLeast(8))
+                touchSlopField.setInt(carouselRecyclerView, (currentSlop * 0.40f).toInt().coerceAtLeast(6))
             } catch (e: Exception) {}
-
-            var startX = 0f
-            var startY = 0f
-
-            carouselRecyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
-                override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                    when (e.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            startX = e.rawX
-                            startY = e.rawY
-                            rv.parent?.requestDisallowInterceptTouchEvent(true)
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            val dx = Math.abs(e.rawX - startX)
-                            val dy = Math.abs(e.rawY - startY)
-                            val slop = ViewConfiguration.get(context).scaledTouchSlop * 0.4f
-
-                            if (dx > slop || dy > slop) {
-                                if (dx > dy) {
-                                    // Horizontal swipe on device cards -> keep gesture within device carousel
-                                    val count = this@HomeView.adapter.itemCount
-                                    val canScroll = if (e.rawX < startX) {
-                                        viewPager.currentItem < count - 1
-                                    } else {
-                                        viewPager.currentItem > 0
-                                    }
-                                    rv.parent?.requestDisallowInterceptTouchEvent(canScroll)
-                                } else {
-                                    // Vertical scroll -> allow parent vertical ScrollView to scroll
-                                    rv.parent?.requestDisallowInterceptTouchEvent(false)
-                                }
-                            }
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            rv.parent?.requestDisallowInterceptTouchEvent(false)
-                        }
-                    }
-                    return false
-                }
-            })
         }
 
-        mainLayout.addView(viewPager)
+        val nestedHost = NestedScrollableHost(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins((20 * density).toInt(), 0, (20 * density).toInt(), (12 * density).toInt()) }
+            addView(viewPager)
+        }
+
+        mainLayout.addView(nestedHost)
 
         dotsIndicatorLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
