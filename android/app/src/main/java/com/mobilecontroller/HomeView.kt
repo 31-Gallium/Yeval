@@ -371,10 +371,23 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
     }
 
     fun updateDevices(newDevices: List<MainActivity.DiscoveredDevice>) {
-        devices = newDevices
-        adapter.notifyDataSetChanged()
+        if (devices.size != newDevices.size || devices.map { it.ip } != newDevices.map { it.ip }) {
+            devices = newDevices
+            adapter.notifyDataSetChanged()
+            updateCarouselIndicators(viewPager.currentItem)
+        } else {
+            devices = newDevices
+            val rv = viewPager.getChildAt(0) as? androidx.recyclerview.widget.RecyclerView
+            if (rv != null) {
+                for (i in devices.indices) {
+                    val holder = rv.findViewHolderForAdapterPosition(i) as? DeviceAdapter.DeviceViewHolder
+                    if (holder != null) {
+                        adapter.bindDevice(holder, devices[i])
+                    }
+                }
+            }
+        }
         updateStatusText()
-        updateCarouselIndicators(viewPager.currentItem)
     }
 
     private fun updateCarouselIndicators(currentPos: Int) {
@@ -885,9 +898,13 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             if (holder is DeviceViewHolder) {
-                val device = devices[position]
-                val now = System.currentTimeMillis()
-                val wifiLive = device.hasWifi && device.wifiIp != null && (now - device.lastWifiSeenMs < 3000)
+                bindDevice(holder, devices[position])
+            }
+        }
+
+        fun bindDevice(holder: DeviceViewHolder, device: MainActivity.DiscoveredDevice) {
+            val now = System.currentTimeMillis()
+            val wifiLive = device.hasWifi && device.wifiIp != null && (now - device.lastWifiSeenMs < 3000)
                 val usbLive = if (device.isUsbTethered) {
                     device.tetherIp != null && (now - device.lastTetherSeenMs < 3000)
                 } else {
@@ -988,4 +1005,3 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             }
         }
     }
-}

@@ -3,55 +3,78 @@ package com.mobilecontroller
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
 import android.widget.FrameLayout
+import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.absoluteValue
+import kotlin.math.sign
 
-/**
- * NestedScrollableHost provides rock-solid horizontal swipe capture for ViewPager2
- * inside ScrollView and SwipeRefreshLayout.
- */
 class NestedScrollableHost @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs) {
 
+    private var touchSlop = 0
     private var initialX = 0f
     private var initialY = 0f
-    private var isDraggingHorizontally = false
 
-    override fun dispatchTouchEvent(e: MotionEvent): Boolean {
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                initialX = e.x
-                initialY = e.y
-                isDraggingHorizontally = false
-                parent?.requestDisallowInterceptTouchEvent(true)
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val dx = (e.x - initialX).absoluteValue
-                val dy = (e.y - initialY).absoluteValue
+    init {
+        touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    }
 
-                if (dx > 8f || dy > 8f) {
-                    if (dx > dy) {
-                        isDraggingHorizontally = true
-                        parent?.requestDisallowInterceptTouchEvent(true)
-                    } else if (!isDraggingHorizontally && dy > dx * 1.3f) {
-                        parent?.requestDisallowInterceptTouchEvent(false)
-                    }
-                }
+    private val childViewPager: ViewPager2?
+        get() {
+            var v: View? = this.getChildAt(0)
+            while (v != null && v !is ViewPager2) {
+                v = if (v is FrameLayout) v.getChildAt(0) else null
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                isDraggingHorizontally = false
-                parent?.requestDisallowInterceptTouchEvent(false)
-            }
+            return v as? ViewPager2
         }
-        return super.dispatchTouchEvent(e)
+
+    private fun canChildScroll(orientation: Int, delta: Float): Boolean {
+        val direction = -delta.sign.toInt()
+        return when (orientation) {
+            0 -> childViewPager?.canScrollHorizontally(direction) ?: false
+            1 -> childViewPager?.canScrollVertically(direction) ?: false
+            else -> throw IllegalArgumentException()
+        }
     }
 
     override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
-        if (isDraggingHorizontally) {
-            parent?.requestDisallowInterceptTouchEvent(true)
-        }
+        handleInterceptTouchEvent(e)
         return super.onInterceptTouchEvent(e)
+    }
+
+    private fun handleInterceptTouchEvent(e: MotionEvent) {
+        val orientation = childViewPager?.orientation ?: return
+
+        if (!canChildScroll(orientation, -1f) && !canChildScroll(orientation, 1f)) {
+            return
+        }
+
+        if (e.action == MotionEvent.ACTION_DOWN) {
+            initialX = e.x
+            initialY = e.y
+            parent.requestDisallowInterceptTouchEvent(true)
+        } else if (e.action == MotionEvent.ACTION_MOVE) {
+            val dx = e.x - initialX
+            val dy = e.y - initialY
+            val isVpHorizontal = orientation == ViewPager2.ORIENTATION_HORIZONTAL
+            val scaledDx = dx.absoluteValue * if (isVpHorizontal) 0.5f else 1f
+            val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else 0.5f
+
+            if (scaledDx > touchSlop || scaledDy > touchSlop) {
+                if (isVpHorizontal == (scaledDy > scaledDx)) {
+                    parent.requestDisallowInterceptTouchEvent(false)
+                } else {
+                    if (canChildScroll(orientation, if (isVpHorizontal) dx else dy)) {
+                        parent.requestDisallowInterceptTouchEvent(true)
+                    } else {
+                        parent.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+            }
+        }
     }
 }
