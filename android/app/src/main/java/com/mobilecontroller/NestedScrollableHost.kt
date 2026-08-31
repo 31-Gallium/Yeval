@@ -2,9 +2,10 @@ package com.mobilecontroller
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.GestureDetector
 import android.view.MotionEvent
-import android.view.ViewConfiguration
 import android.widget.FrameLayout
+import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.absoluteValue
 
 /**
@@ -16,35 +17,53 @@ class NestedScrollableHost @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs) {
 
-    private var touchSlop = 0
     private var initialX = 0f
     private var initialY = 0f
     private var isDraggingHorizontally = false
 
-    init {
-        touchSlop = (ViewConfiguration.get(context).scaledTouchSlop * 0.35f).toInt().coerceAtLeast(6)
-    }
+    private val viewPager: ViewPager2?
+        get() = if (childCount > 0) getChildAt(0) as? ViewPager2 else null
+
+    // Low-threshold fling detector to immediately advance on quick thumb swipes/flicks without springing back
+    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+            val vp = viewPager ?: return false
+            val adapter = vp.adapter ?: return false
+            val absVx = velocityX.absoluteValue
+            val absVy = velocityY.absoluteValue
+
+            if (absVx > absVy && absVx > 200f) {
+                if (velocityX < -200f && vp.currentItem < adapter.itemCount - 1) {
+                    vp.setCurrentItem(vp.currentItem + 1, true)
+                    return true
+                } else if (velocityX > 200f && vp.currentItem > 0) {
+                    vp.setCurrentItem(vp.currentItem - 1, true)
+                    return true
+                }
+            }
+            return false
+        }
+    })
 
     override fun dispatchTouchEvent(e: MotionEvent): Boolean {
+        gestureDetector.onTouchEvent(e)
+
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 initialX = e.x
                 initialY = e.y
                 isDraggingHorizontally = false
-                // Forbid all ancestors (SwipeRefreshLayout, ScrollView, Root ViewPager2) from intercepting
                 parent?.requestDisallowInterceptTouchEvent(true)
             }
             MotionEvent.ACTION_MOVE -> {
                 val dx = (e.x - initialX).absoluteValue
                 val dy = (e.y - initialY).absoluteValue
 
-                if (dx > touchSlop || dy > touchSlop) {
+                if (dx > 8f || dy > 8f) {
                     if (dx > dy) {
-                        // Horizontal swipe -> lock touch inside device carousel
                         isDraggingHorizontally = true
                         parent?.requestDisallowInterceptTouchEvent(true)
                     } else if (!isDraggingHorizontally && dy > dx * 1.3f) {
-                        // Vertical scroll -> release to parent ScrollView
                         parent?.requestDisallowInterceptTouchEvent(false)
                     }
                 }
@@ -58,7 +77,6 @@ class NestedScrollableHost @JvmOverloads constructor(
     }
 
     override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
-        // Redundant safety check to keep parents locked during horizontal drags
         if (isDraggingHorizontally) {
             parent?.requestDisallowInterceptTouchEvent(true)
         }

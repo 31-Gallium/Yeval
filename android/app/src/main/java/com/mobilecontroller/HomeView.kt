@@ -183,16 +183,7 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             )
         }
 
-        // Optimize internal RecyclerView touch slop for instant, effortless swipe detection
-        val carouselRecyclerView = viewPager.getChildAt(0) as? RecyclerView
-        if (carouselRecyclerView != null) {
-            try {
-                val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
-                touchSlopField.isAccessible = true
-                val currentSlop = touchSlopField.getInt(carouselRecyclerView)
-                touchSlopField.setInt(carouselRecyclerView, (currentSlop * 0.40f).toInt().coerceAtLeast(6))
-            } catch (e: Exception) {}
-        }
+
 
         val nestedHost = NestedScrollableHost(context).apply {
             layoutParams = LinearLayout.LayoutParams(

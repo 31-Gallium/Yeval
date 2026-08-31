@@ -59,7 +59,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     // Outer soft frosted ambient halo glow
     private val haloGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 9f
+        strokeWidth = 8f
         strokeCap = Paint.Cap.ROUND
         maskFilter = BlurMaskFilter(14f, BlurMaskFilter.Blur.NORMAL)
     }
@@ -87,7 +87,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     private fun startGlowAnimation() {
         if (glowAnimator != null) return
         glowAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 4500L // Smooth 4.5s clockwise orbit
+            duration = 4500L // Smooth 4.5s continuous clockwise orbit
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { anim ->
@@ -127,7 +127,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     }
 
     /**
-     * Extracts a path segment across distance boundaries, seamlessly wrapping around 0..pathLength.
+     * Extracts a path segment across distance boundaries, seamlessly joining into a SINGLE continuous line without splitting.
      */
     private fun extractContourSegment(startDist: Float, length: Float, dst: Path) {
         dst.reset()
@@ -139,9 +139,10 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         if (e <= pathLength) {
             pathMeasure.getSegment(s, e, dst, true)
         } else {
-            // First chunk to end of contour, second chunk from start of contour
+            // First chunk to end of contour (with moveTo at start)
             pathMeasure.getSegment(s, pathLength, dst, true)
-            pathMeasure.getSegment(0f, e - pathLength, dst, true)
+            // Second chunk from start of contour (with startWithMoveTo = false so it seamlessly connects as one unbroken curve)
+            pathMeasure.getSegment(0f, e - pathLength, dst, false)
         }
     }
 
@@ -159,7 +160,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
                 val glowLength = pathLength * 0.32f
                 val startDist = glowProgress * pathLength
 
-                // 3. Outer Frosted Ambient Halo Glow (with seamless 360-degree wrapping)
+                // 3. Outer Frosted Ambient Halo Glow (single continuous 360° traveling beam)
                 extractContourSegment(startDist, glowLength, glowSegmentPath)
                 haloGlowPaint.color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#7dd3fc")
                 haloGlowPaint.alpha = if (isConnected) 140 else 85
