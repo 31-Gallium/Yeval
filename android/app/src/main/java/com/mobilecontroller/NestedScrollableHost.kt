@@ -63,8 +63,8 @@ class NestedScrollableHost @JvmOverloads constructor(
         } else if (e.action == MotionEvent.ACTION_MOVE) {
             val dx = e.x - initialX
             val dy = e.y - initialY
-            val scaledDx = dx.absoluteValue * if (isRvHorizontal) 0.5f else 1f
-            val scaledDy = dy.absoluteValue * if (isRvHorizontal) 1f else 0.5f
+            val scaledDx = dx.absoluteValue * if (isRvHorizontal) 1f else 0.5f
+            val scaledDy = dy.absoluteValue * if (isRvHorizontal) 0.5f else 1f
 
             if (scaledDx > touchSlop || scaledDy > touchSlop) {
                 if (isRvHorizontal == (scaledDy > scaledDx)) {

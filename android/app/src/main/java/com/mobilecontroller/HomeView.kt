@@ -16,7 +16,7 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.LinearSnapHelper
+import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 
 class HomeView(
@@ -170,6 +170,14 @@ class HomeView(
 
         adapter = DeviceAdapter()
 
+        swipeRefreshLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(context).apply {
+            setColorSchemeColors(Color.parseColor("#e2e8f0"))
+            setProgressBackgroundColorSchemeColor(Color.parseColor("#12141c"))
+            setOnRefreshListener {
+                onRefresh?.invoke()
+            }
+        }
+
         carouselRv = RecyclerView(context).apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             this.adapter = this@HomeView.adapter
@@ -183,10 +191,14 @@ class HomeView(
             isHorizontalFadingEdgeEnabled = true
             setFadingEdgeLength((40 * density).toInt())
 
-            val snapHelper = LinearSnapHelper()
+            val snapHelper = PagerSnapHelper()
             snapHelper.attachToRecyclerView(this)
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    swipeRefreshLayout.isEnabled = (newState == RecyclerView.SCROLL_STATE_IDLE)
+                }
+                
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     val lm = layoutManager as LinearLayoutManager
                     var currentPos = lm.findFirstCompletelyVisibleItemPosition()
@@ -235,14 +247,7 @@ class HomeView(
             addView(mainLayout)
         }
 
-        swipeRefreshLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(context).apply {
-            setColorSchemeColors(Color.parseColor("#e2e8f0"))
-            setProgressBackgroundColorSchemeColor(Color.parseColor("#12141c"))
-            setOnRefreshListener {
-                onRefresh?.invoke()
-            }
-            addView(scrollView)
-        }
+        swipeRefreshLayout.addView(scrollView)
         addView(swipeRefreshLayout)
     }
 
