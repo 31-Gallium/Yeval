@@ -186,10 +186,6 @@ class HomeView(
             
             // Padding so adjacent cards peek in slightly
             setPadding((24 * density).toInt(), 0, (24 * density).toInt(), 0)
-            
-            // Fading edges for smooth clip transition
-            isHorizontalFadingEdgeEnabled = true
-            setFadingEdgeLength((40 * density).toInt())
 
             val snapHelper = PagerSnapHelper()
             snapHelper.attachToRecyclerView(this)
