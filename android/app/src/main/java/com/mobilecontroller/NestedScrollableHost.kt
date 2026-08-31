@@ -6,7 +6,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.widget.FrameLayout
-import androidx.viewpager2.widget.ViewPager2
+import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.absoluteValue
 import kotlin.math.sign
 
@@ -23,20 +23,20 @@ class NestedScrollableHost @JvmOverloads constructor(
         touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     }
 
-    private val childViewPager: ViewPager2?
+    private val childRecyclerView: RecyclerView?
         get() {
             var v: View? = this.getChildAt(0)
-            while (v != null && v !is ViewPager2) {
+            while (v != null && v !is RecyclerView) {
                 v = if (v is FrameLayout) v.getChildAt(0) else null
             }
-            return v as? ViewPager2
+            return v as? RecyclerView
         }
 
     private fun canChildScroll(orientation: Int, delta: Float): Boolean {
         val direction = -delta.sign.toInt()
         return when (orientation) {
-            0 -> childViewPager?.canScrollHorizontally(direction) ?: false
-            1 -> childViewPager?.canScrollVertically(direction) ?: false
+            0 -> childRecyclerView?.canScrollHorizontally(direction) ?: false
+            1 -> childRecyclerView?.canScrollVertically(direction) ?: false
             else -> throw IllegalArgumentException()
         }
     }
@@ -47,7 +47,10 @@ class NestedScrollableHost @JvmOverloads constructor(
     }
 
     private fun handleInterceptTouchEvent(e: MotionEvent) {
-        val orientation = childViewPager?.orientation ?: return
+        val rv = childRecyclerView ?: return
+        val layoutManager = rv.layoutManager ?: return
+        val isRvHorizontal = layoutManager.canScrollHorizontally()
+        val orientation = if (isRvHorizontal) 0 else 1
 
         if (!canChildScroll(orientation, -1f) && !canChildScroll(orientation, 1f)) {
             return
@@ -60,15 +63,14 @@ class NestedScrollableHost @JvmOverloads constructor(
         } else if (e.action == MotionEvent.ACTION_MOVE) {
             val dx = e.x - initialX
             val dy = e.y - initialY
-            val isVpHorizontal = orientation == ViewPager2.ORIENTATION_HORIZONTAL
-            val scaledDx = dx.absoluteValue * if (isVpHorizontal) 0.5f else 1f
-            val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else 0.5f
+            val scaledDx = dx.absoluteValue * if (isRvHorizontal) 0.5f else 1f
+            val scaledDy = dy.absoluteValue * if (isRvHorizontal) 1f else 0.5f
 
             if (scaledDx > touchSlop || scaledDy > touchSlop) {
-                if (isVpHorizontal == (scaledDy > scaledDx)) {
+                if (isRvHorizontal == (scaledDy > scaledDx)) {
                     parent.requestDisallowInterceptTouchEvent(false)
                 } else {
-                    if (canChildScroll(orientation, if (isVpHorizontal) dx else dy)) {
+                    if (canChildScroll(orientation, if (isRvHorizontal) dx else dy)) {
                         parent.requestDisallowInterceptTouchEvent(true)
                     } else {
                         parent.requestDisallowInterceptTouchEvent(false)

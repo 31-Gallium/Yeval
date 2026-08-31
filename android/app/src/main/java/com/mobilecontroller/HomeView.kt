@@ -15,13 +15,17 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager2.widget.ViewPager2
 
-class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : FrameLayout(context) {
+class HomeView(
+    context: Context,
+    private val onLaunchGamepad: (String, Int) -> Unit
+) : FrameLayout(context) {
 
     val swipeRefreshLayout: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-    private val viewPager: ViewPager2
+    private val carouselRv: RecyclerView
     private val dotsIndicatorLayout: LinearLayout
     private val adapter: DeviceAdapter
     private var devices: List<MainActivity.DiscoveredDevice> = emptyList()
@@ -166,15 +170,32 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
 
         adapter = DeviceAdapter()
 
-        viewPager = ViewPager2(context).apply {
+        carouselRv = RecyclerView(context).apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             this.adapter = this@HomeView.adapter
-            clipToPadding = true
-            clipChildren = true
-            offscreenPageLimit = 1
+            clipToPadding = false
+            clipChildren = false
+            
+            // Padding so adjacent cards peek in slightly
+            setPadding((24 * density).toInt(), 0, (24 * density).toInt(), 0)
+            
+            // Fading edges for smooth clip transition
+            isHorizontalFadingEdgeEnabled = true
+            setFadingEdgeLength((40 * density).toInt())
 
-            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                override fun onPageSelected(position: Int) {
-                    updateCarouselIndicators(position)
+            val snapHelper = LinearSnapHelper()
+            snapHelper.attachToRecyclerView(this)
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    val lm = layoutManager as LinearLayoutManager
+                    var currentPos = lm.findFirstCompletelyVisibleItemPosition()
+                    if (currentPos == RecyclerView.NO_POSITION) {
+                        currentPos = (lm.findFirstVisibleItemPosition() + lm.findLastVisibleItemPosition()) / 2
+                    }
+                    if (currentPos != RecyclerView.NO_POSITION) {
+                        updateCarouselIndicators(currentPos)
+                    }
                 }
             })
 
@@ -184,30 +205,12 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             )
         }
 
-        val carouselRv = viewPager.getChildAt(0) as? RecyclerView
-        carouselRv?.let { rv ->
-            try {
-                val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
-                touchSlopField.isAccessible = true
-                val touchSlop = touchSlopField.get(rv) as Int
-                touchSlopField.set(rv, touchSlop / 2)
-                
-                val minFlingVelocityField = RecyclerView::class.java.getDeclaredField("mMinFlingVelocity")
-                minFlingVelocityField.isAccessible = true
-                val minFling = minFlingVelocityField.get(rv) as Int
-                minFlingVelocityField.set(rv, minFling / 4)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-
         val nestedHost = NestedScrollableHost(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins((20 * density).toInt(), 0, (20 * density).toInt(), (12 * density).toInt()) }
-            addView(viewPager)
+            ).apply { setMargins(0, 0, 0, (12 * density).toInt()) }
+            addView(carouselRv)
         }
 
         mainLayout.addView(nestedHost)
@@ -371,19 +374,23 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
     }
 
     fun updateDevices(newDevices: List<MainActivity.DiscoveredDevice>) {
+        val lm = carouselRv.layoutManager as LinearLayoutManager
+        var currentItem = lm.findFirstCompletelyVisibleItemPosition()
+        if (currentItem == RecyclerView.NO_POSITION) {
+            currentItem = (lm.findFirstVisibleItemPosition() + lm.findLastVisibleItemPosition()) / 2
+        }
+        if (currentItem == RecyclerView.NO_POSITION) currentItem = 0
+
         if (devices.size != newDevices.size || devices.map { it.ip } != newDevices.map { it.ip }) {
             devices = newDevices
             adapter.notifyDataSetChanged()
-            updateCarouselIndicators(viewPager.currentItem)
+            updateCarouselIndicators(currentItem)
         } else {
             devices = newDevices
-            val rv = viewPager.getChildAt(0) as? androidx.recyclerview.widget.RecyclerView
-            if (rv != null) {
-                for (i in devices.indices) {
-                    val holder = rv.findViewHolderForAdapterPosition(i) as? DeviceAdapter.DeviceViewHolder
-                    if (holder != null) {
-                        adapter.bindDevice(holder, devices[i])
-                    }
+            for (i in devices.indices) {
+                val holder = carouselRv.findViewHolderForAdapterPosition(i) as? DeviceAdapter.DeviceViewHolder
+                if (holder != null) {
+                    adapter.bindDevice(holder, devices[i])
                 }
             }
         }
