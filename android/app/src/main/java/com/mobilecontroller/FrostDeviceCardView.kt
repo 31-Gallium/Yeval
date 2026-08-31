@@ -2,13 +2,12 @@ package com.mobilecontroller
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.PathMeasure
 import android.graphics.RectF
+import android.graphics.SweepGradient
 import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 
@@ -31,11 +30,12 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         set(value) {
             if (field != value) {
                 field = value
+                updateShader()
                 invalidate()
             }
         }
 
-    private var glowProgress: Float = 0f
+    private var glowAngle: Float = 0f
     private var glowAnimator: ValueAnimator? = null
 
     private val cornerRadius = 48f
@@ -56,27 +56,23 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         color = Color.parseColor("#181d28")
     }
 
-    // Outer soft frosted ambient halo glow
+    // Outer soft frosted ambient halo glow (full complete outline)
     private val haloGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 8f
-        strokeCap = Paint.Cap.ROUND
-        maskFilter = BlurMaskFilter(14f, BlurMaskFilter.Blur.NORMAL)
+        strokeWidth = 7f
     }
 
-    // Crisp high-contrast frosted white light core
+    // Crisp high-contrast frosted white light core (full complete outline)
     private val coreStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 3.5f
-        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 3f
     }
 
     private val cardRect = RectF()
-    private val borderPath = Path()
-    private val glowSegmentPath = Path()
-    private val coreSegmentPath = Path()
-    private val pathMeasure = PathMeasure()
-    private var pathLength = 0f
+    private val shaderMatrix = Matrix()
+    private var sweepGradient: SweepGradient? = null
+    private var cx = 0f
+    private var cy = 0f
 
     init {
         setWillNotDraw(false)
@@ -86,12 +82,12 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
     private fun startGlowAnimation() {
         if (glowAnimator != null) return
-        glowAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 4500L // Smooth 4.5s continuous clockwise orbit
+        glowAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 4500L // Smooth 4.5s clockwise 360° orbit
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { anim ->
-                glowProgress = anim.animatedValue as Float
+                glowAngle = anim.animatedValue as Float
                 invalidate()
             }
             start()
@@ -101,7 +97,7 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
     private fun stopGlowAnimation() {
         glowAnimator?.cancel()
         glowAnimator = null
-        glowProgress = 0f
+        glowAngle = 0f
         invalidate()
     }
 
@@ -119,31 +115,57 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
         super.onSizeChanged(w, h, oldw, oldh)
         val strokeInset = 4f
         cardRect.set(strokeInset, strokeInset, w.toFloat() - strokeInset, h.toFloat() - strokeInset)
-        
-        borderPath.reset()
-        borderPath.addRoundRect(cardRect, cornerRadius, cornerRadius, Path.Direction.CW)
-        pathMeasure.setPath(borderPath, true)
-        pathLength = pathMeasure.length
+        cx = w / 2f
+        cy = h / 2f
+        updateShader()
     }
 
-    /**
-     * Extracts a path segment across distance boundaries, seamlessly joining into a SINGLE continuous line without splitting.
-     */
-    private fun extractContourSegment(startDist: Float, length: Float, dst: Path) {
-        dst.reset()
-        if (pathLength <= 0f) return
+    private fun updateShader() {
+        if (cx <= 0f || cy <= 0f) return
 
-        val s = (startDist % pathLength + pathLength) % pathLength
-        val e = s + length
-
-        if (e <= pathLength) {
-            pathMeasure.getSegment(s, e, dst, true)
+        // Symmetrical closed-loop continuous sweep gradient (0° and 360° are identical #182233)
+        // High-contrast frosted highlight at 180° sweeps smoothly clockwise
+        val colors = if (isConnected) {
+            intArrayOf(
+                Color.parseColor("#182233"), // 0 deg (dormant slate)
+                Color.parseColor("#1a365d"), // 60 deg
+                Color.parseColor("#0284c7"), // 120 deg (vibrant sky blue)
+                Color.parseColor("#38bdf8"), // 160 deg (frost cyan)
+                Color.parseColor("#ffffff"), // 180 deg (frosted silver highlight peak)
+                Color.parseColor("#38bdf8"), // 200 deg (frost cyan)
+                Color.parseColor("#0284c7"), // 240 deg (vibrant sky blue)
+                Color.parseColor("#1a365d"), // 300 deg
+                Color.parseColor("#182233")  // 360 deg (identical to 0 deg)
+            )
         } else {
-            // First chunk to end of contour (with moveTo at start)
-            pathMeasure.getSegment(s, pathLength, dst, true)
-            // Second chunk from start of contour (with startWithMoveTo = false so it seamlessly connects as one unbroken curve)
-            pathMeasure.getSegment(0f, e - pathLength, dst, false)
+            intArrayOf(
+                Color.parseColor("#182233"),
+                Color.parseColor("#1e293b"),
+                Color.parseColor("#334155"),
+                Color.parseColor("#7dd3fc"),
+                Color.parseColor("#ffffff"),
+                Color.parseColor("#7dd3fc"),
+                Color.parseColor("#334155"),
+                Color.parseColor("#1e293b"),
+                Color.parseColor("#182233")
+            )
         }
+
+        val positions = floatArrayOf(
+            0.0f,
+            0.17f,
+            0.33f,
+            0.44f,
+            0.50f,
+            0.56f,
+            0.67f,
+            0.83f,
+            1.0f
+        )
+
+        sweepGradient = SweepGradient(cx, cy, colors, positions)
+        haloGlowPaint.shader = sweepGradient
+        coreStrokePaint.shader = sweepGradient
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -154,31 +176,26 @@ class FrostDeviceCardView(context: Context) : LinearLayout(context) {
 
             // 2. Base subtle dark border frame
             baseBorderPaint.color = if (isConnected) Color.parseColor("#162b3d") else Color.parseColor("#1a2232")
-            canvas.drawPath(borderPath, baseBorderPaint)
+            canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, baseBorderPaint)
 
-            if (pathLength > 0f) {
-                val glowLength = pathLength * 0.32f
-                val startDist = glowProgress * pathLength
+            // 3. Full Complete Outline with Clockwise 360° Rotating Frost Glow
+            if (sweepGradient != null) {
+                shaderMatrix.setRotate(glowAngle, cx, cy)
+                sweepGradient?.setLocalMatrix(shaderMatrix)
 
-                // 3. Outer Frosted Ambient Halo Glow (single continuous 360° traveling beam)
-                extractContourSegment(startDist, glowLength, glowSegmentPath)
-                haloGlowPaint.color = if (isConnected) Color.parseColor("#38bdf8") else Color.parseColor("#7dd3fc")
-                haloGlowPaint.alpha = if (isConnected) 140 else 85
-                canvas.drawPath(glowSegmentPath, haloGlowPaint)
+                // Soft outer ambient halo
+                haloGlowPaint.alpha = if (isConnected) 120 else 75
+                canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, haloGlowPaint)
 
-                // 4. Sharp High-Contrast Frosted White Light Core (centered inside the glow beam)
-                val coreLength = glowLength * 0.65f
-                val coreStartDist = startDist + (glowLength - coreLength) / 2f
-                extractContourSegment(coreStartDist, coreLength, coreSegmentPath)
-                coreStrokePaint.color = if (isConnected) Color.parseColor("#ffffff") else Color.parseColor("#f8fafc")
+                // Crisp bright core outline
                 coreStrokePaint.alpha = 255
-                canvas.drawPath(coreSegmentPath, coreStrokePaint)
+                canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, coreStrokePaint)
             }
         } else {
             // Offline Card: Dark Obsidian muted stealth styling
             bgPaint.color = Color.parseColor("#090b10")
             canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, bgPaint)
-            canvas.drawPath(borderPath, staticOfflineBorderPaint)
+            canvas.drawRoundRect(cardRect, cornerRadius, cornerRadius, staticOfflineBorderPaint)
         }
 
         super.onDraw(canvas)

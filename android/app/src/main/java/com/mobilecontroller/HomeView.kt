@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -183,6 +184,39 @@ class HomeView(context: Context, val onLaunchGamepad: (String, Int) -> Unit) : F
             )
         }
 
+        var touchDownX = 0f
+        var touchDownTime = 0L
+
+        val carouselRv = viewPager.getChildAt(0) as? RecyclerView
+        carouselRv?.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        touchDownX = e.rawX
+                        touchDownTime = SystemClock.uptimeMillis()
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val deltaX = e.rawX - touchDownX
+                        val deltaTime = (SystemClock.uptimeMillis() - touchDownTime).coerceAtLeast(1)
+                        val velocity = deltaX / deltaTime.toFloat()
+
+                        val thresholdDist = (35 * density) // Only 35dp drag needed to advance!
+                        if (deltaX < -thresholdDist || (velocity < -0.25f && deltaX < -15)) {
+                            if (viewPager.currentItem < (viewPager.adapter?.itemCount ?: 1) - 1) {
+                                viewPager.setCurrentItem(viewPager.currentItem + 1, true)
+                                return true
+                            }
+                        } else if (deltaX > thresholdDist || (velocity > 0.25f && deltaX > 15)) {
+                            if (viewPager.currentItem > 0) {
+                                viewPager.setCurrentItem(viewPager.currentItem - 1, true)
+                                return true
+                            }
+                        }
+                    }
+                }
+                return false
+            }
+        })
 
 
         val nestedHost = NestedScrollableHost(context).apply {

@@ -2,10 +2,8 @@ package com.mobilecontroller
 
 import android.content.Context
 import android.util.AttributeSet
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.widget.FrameLayout
-import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.absoluteValue
 
 /**
@@ -21,33 +19,7 @@ class NestedScrollableHost @JvmOverloads constructor(
     private var initialY = 0f
     private var isDraggingHorizontally = false
 
-    private val viewPager: ViewPager2?
-        get() = if (childCount > 0) getChildAt(0) as? ViewPager2 else null
-
-    // Low-threshold fling detector to immediately advance on quick thumb swipes/flicks without springing back
-    private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-        override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-            val vp = viewPager ?: return false
-            val adapter = vp.adapter ?: return false
-            val absVx = velocityX.absoluteValue
-            val absVy = velocityY.absoluteValue
-
-            if (absVx > absVy && absVx > 200f) {
-                if (velocityX < -200f && vp.currentItem < adapter.itemCount - 1) {
-                    vp.setCurrentItem(vp.currentItem + 1, true)
-                    return true
-                } else if (velocityX > 200f && vp.currentItem > 0) {
-                    vp.setCurrentItem(vp.currentItem - 1, true)
-                    return true
-                }
-            }
-            return false
-        }
-    })
-
     override fun dispatchTouchEvent(e: MotionEvent): Boolean {
-        gestureDetector.onTouchEvent(e)
-
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 initialX = e.x
